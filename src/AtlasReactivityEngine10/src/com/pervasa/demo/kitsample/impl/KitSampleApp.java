@@ -16,31 +16,16 @@
 package com.pervasa.demo.kitsample.impl;
 
 // awt/swing GUI components
-import javax.swing.UIManager;
-import javax.swing.plaf.metal.*;
-import java.awt.Dimension;
-import java.awt.Component;
-import java.awt.Font;
-import java.awt.event.MouseEvent;
 import java.util.Calendar;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Stack;
 import java.util.StringTokenizer;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.regex.Pattern;
-
-import javax.swing.ImageIcon;
-import javax.swing.JButton;
 import javax.swing.JFrame;
-import javax.swing.JLabel;
-import javax.swing.JSlider;
-import javax.swing.JProgressBar;
-import java.awt.Color;
 
 import java.io.*;
 
@@ -48,26 +33,12 @@ import java.io.*;
 
 
 import java.io.BufferedReader;
-import java.io.FileInputStream;
 import java.io.FileReader;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.StringTokenizer;
 
-import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 
-import java.io.*;
-
-// used to access Knopflerfish's information about a bundle file
-import org.osgi.framework.BundleContext;
-// used to track sensor and actuator services and the come online and go offline
-import org.osgi.framework.ServiceReference;
 // used to access Knopflerfish's information about a bundle file
 import org.osgi.framework.BundleContext;
 // used to track sensor and actuator services and the come online and go offline
