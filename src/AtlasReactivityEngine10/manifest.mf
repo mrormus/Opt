@@ -1,0 +1,11 @@
+Bundle-SymbolicName: ReactiveEngine
+Bundle-Version: 1.0
+Bundle-Name: Reactive Engine
+Bundle-Vendor: Pervasa
+Bundle-Author: rakesh
+Bundle-Description: Sample application for Atlas Education Kits
+Bundle-Activator: com.pervasa.demo.kitsample.impl.Activator
+Import-Package: com.pervasa.atlas.dev.service,
+ org.osgi.framework,org.sensorplatform.sensors.pressure,org.sensorplatform.actuators.servo.hs322,
+ org.sensorplatform.sensors.digitalcontact,org.sensorplatform.sensors.humidity,org.sensorplatform.sensors.temperature
+
