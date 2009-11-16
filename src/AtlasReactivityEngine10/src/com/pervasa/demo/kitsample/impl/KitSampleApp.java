@@ -15,8 +15,6 @@
  */
 package com.pervasa.demo.kitsample.impl;
 
-// This is a sample comment, introduced by pflanagan
-
 // awt/swing GUI components
 import javax.swing.UIManager;
 import javax.swing.plaf.metal.*;
