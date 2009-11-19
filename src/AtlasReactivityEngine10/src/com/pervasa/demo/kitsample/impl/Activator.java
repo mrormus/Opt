@@ -37,7 +37,7 @@ import com.pervasa.atlas.dev.service.*;
 //   discovery and collaboration support.
 public class Activator implements BundleActivator, ServiceListener {
     private BundleContext context;
-    private KitSampleApp kitSampleApp;
+    private GUI gui;
     
     public void start(BundleContext context) throws Exception {
     	// the contextual information that OSGi knows about this bundle, which the
@@ -45,7 +45,7 @@ public class Activator implements BundleActivator, ServiceListener {
     	//   JAR file that contains the bundle).
     	this.context = context;
     	// instantiate the application
-        kitSampleApp = new KitSampleApp(context);         
+        gui = new GUI(context);         
         System.out.println("*** Starting Kit Sample Application ***");
         // register to listen for other OSGi services as they come online, change, or go offline
         context.addServiceListener(this, "(objectClass="+ AtlasService.class.getName() + ")");
@@ -62,7 +62,7 @@ public class Activator implements BundleActivator, ServiceListener {
     	//   allocated while the service is unavailable, but it wouldn't be
     	//   automatically cleaned by the Java garbage collector since this
     	//   Activator class would still have a reference to it.
-    	kitSampleApp.dispose();
+    	gui.dispose();
 	}
     
     public void serviceChanged(ServiceEvent event) {
