@@ -18,6 +18,7 @@ import java.util.StringTokenizer;
 import java.util.concurrent.ConcurrentHashMap;
 
 import javax.swing.JOptionPane;
+import javax.swing.JTextArea;
 
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.ServiceReference;
@@ -33,7 +34,11 @@ import com.pervasa.atlas.dev.service.AtlasService;
 
 public class ReactiveEngine implements AtlasClient {
 	
+	//FIXME: Not sure why eclipse thinks this variable is unused.  It is used in the constructor
+	// could be indicative of a problem.
 	private BundleContext context;
+	private GUI gui;
+	private JTextArea jTextArea2;
 	
     int run=0; /*FIXME: Make this boolean*/
     
@@ -100,12 +105,14 @@ public class ReactiveEngine implements AtlasClient {
 	
 	protected boolean isSwitchOn;
 
-	public ReactiveEngine(BundleContext context) {
+	public ReactiveEngine(BundleContext context, GUI gui, JTextArea jTextArea2) {
+		this.jTextArea2 = jTextArea2;
+		this.gui = gui;
 		this.context = context;
 		isSwitchOn = false;
-		//this.setVisible(true);
-		//initGUI();
 	}
+	
+	//FIXME: Interface with middleware could be separated, probably
 
 	// this method is called by the KitSampleApp bundle's Activator when any service running
 	//   in Knopflerfish starts or changes
@@ -349,15 +356,17 @@ public class ReactiveEngine implements AtlasClient {
 		basicActions.put(nodeid, "Move Servo " + nodeid+", "+range);
 	}
 	//function to display the values in a map
-	public void showMap(Map basicEvents){
+	public void showMap(Map<String, AtomicEvent> basicEvents){
 		System.out.println("Map is now:");
-		Iterator i = basicEvents.values().iterator();
+		Iterator<AtomicEvent> i = basicEvents.values().iterator();
 		String nodeids;
 		while(i.hasNext()){
 			nodeids = i.next().toString();
 			System.out.println(nodeids);
 		}
 	}
+	
+	//FIXME: Engine logic rules could be separated
 	
 	//dummy function to fill the eventList with samples to test. look at the node id in knopplerfish console and modify it here.
 	//the events will then have values T or F. the node id's will come from the user input directly into this map
@@ -633,7 +642,6 @@ public class ReactiveEngine implements AtlasClient {
 						break;
 					}
 					case '*': {
-						char [] test;
 						//op1 = 'T';
 						//op1 = stack.pop()[0];
 						op1  = stack.pop();
@@ -689,7 +697,6 @@ public class ReactiveEngine implements AtlasClient {
 	public void updateEvents(){
 		//get the sensor reading here and update all events in the 
 		//eventsList hashtable
-		String key;
 		String truthValue;
 		boolean eventValue = false;
 		AtomicEvent a;
@@ -726,7 +733,7 @@ public class ReactiveEngine implements AtlasClient {
 		while (rItr.hasNext()){
 			ruleid = rItr.next();
 			rule = rules.get(ruleid);
-			rule.evaluate();
+			evaluateRule(rule);
 		}
 	}
 	
@@ -751,6 +758,7 @@ public class ReactiveEngine implements AtlasClient {
 	
 	//rakesh function s begin
 	
+	//FIXME: Command parsing stuff could be separated.
 	
 	
 	
@@ -759,12 +767,11 @@ public class ReactiveEngine implements AtlasClient {
 	        String trimString=str.trim();
 	        String strpp[]=trimString.split("\\s");
 	        StringBuffer str1=new StringBuffer();
-	        String str2;
 	        String str5;
 	        AtomicEvent a;
 	        if(strpp.length>2)
 	        {
-	        	 JOptionPane.showMessageDialog(this, "Invalid usage of LIST");
+	        	 JOptionPane.showMessageDialog(gui, "Invalid usage of LIST");
 		            return;
 	        }
 	        if((trimString.endsWith("LIST"))&&(strpp.length<2))
@@ -883,7 +890,7 @@ public class ReactiveEngine implements AtlasClient {
 	        }
 	        else
 	        {
-	            JOptionPane.showMessageDialog(this, "Invalid usage of List");  
+	            JOptionPane.showMessageDialog(gui, "Invalid usage of List");  
 	            return;
 	        }
 	        String str3=str1+"\n";
@@ -896,11 +903,9 @@ public class ReactiveEngine implements AtlasClient {
 	        String trimString=str.trim();
 	        String strpn[]=trimString.split("\\s");
 	         StringBuffer str4=new StringBuffer();
-	        String str5;
-	        AtomicEvent a;
 	        if(strpn.length>2)
 	        {
-	        	 JOptionPane.showMessageDialog(this, "Invalid usage of BASIC");
+	        	 JOptionPane.showMessageDialog(gui, "Invalid usage of BASIC");
 		            return;
 	        }
 	        if(trimString.endsWith("BASIC")&&(strpn.length<2))
@@ -939,7 +944,7 @@ public class ReactiveEngine implements AtlasClient {
 	        }
 	        else
 	        {
-	            JOptionPane.showMessageDialog(this, "Invalid usage of BASIC");
+	            JOptionPane.showMessageDialog(gui, "Invalid usage of BASIC");
 	            return;
 	        }
 	        String str6=str4+"\n";
@@ -948,31 +953,24 @@ public class ReactiveEngine implements AtlasClient {
 	    
 	    
 	    
-	    String evaluate2(String s)
+	    String evaluateAtomicEvent(String s)
 	    {
 	        String k;
 	        AtomicEvent a;
-	       /* for(Map.Entry<String,AtomicEvent> p: eventBasic.entrySet())
-	        {
-	            k=p.getKey();
-	            a=p.getValue();
-	            if(k.matches(s))
-	                return a.expression;
-	        }*/
+
 	        for(Map.Entry<String,AtomicEvent> p: eventList.entrySet())
 	        {
 	            k=p.getKey();
 	            a=p.getValue();
 	            if(k.matches(s))
 	            {
-	                //String split[]=k.split(";");
 	                return a.expansion;
 	            }
 	        }
 	        return "invalid";
 	    }
 	            
-	    String evaluate1(String s)
+	    String evaluateAction(String s)
 	    {
 	        String k;
 	        Action a;
@@ -1000,20 +998,14 @@ public class ReactiveEngine implements AtlasClient {
 	    void defineCommand(String str)
 	    {
 	        System.out.println("DEBUGG");
-	        String trimString=str.trim();
 	        str = str.trim();
 	        if(run==0)
 	        {
-	            int l=0;
-	            char s[]=str.toCharArray();
+
 	            System.out.println("IN RUN " + str);
 	            String strsplit[]=str.split("\\s");
 	            
 	            String returnString;
-	            StringBuffer eventDefine=new StringBuffer();
-	            StringBuffer conditionDefine=new StringBuffer();
-	            StringBuffer actionDefine=new StringBuffer();
-	            StringBuffer ruleDefine=new StringBuffer();
 	            StringBuffer appendString=new StringBuffer();
 	          /*  while(s[l]=='D')
 	            {
@@ -1035,12 +1027,12 @@ public class ReactiveEngine implements AtlasClient {
 	                String strsl[]=strspl[0].split("\\s");
 	                if(strspl.length<2)
 	                {
-	                  JOptionPane.showMessageDialog(this, "Invalid usage of Define event");
+	                  JOptionPane.showMessageDialog(gui, "Invalid usage of Define event");
 	                    return;  
 	                }
 	                if(strspl.length>2)
 	                {
-	                JOptionPane.showMessageDialog(this, "Invalid usage of Define event");
+	                JOptionPane.showMessageDialog(gui, "Invalid usage of Define event");
 	                return;
 	                }
 	                StringTokenizer strtokensp=new StringTokenizer(strspl[1],"+*");
@@ -1051,7 +1043,6 @@ public class ReactiveEngine implements AtlasClient {
 	                 }
 	                char temp[]=strspl[1].toCharArray();
 	                List<String> plustar=new ArrayList<String>();
-	                int n=0;
 	                for(int r=0;r<temp.length;r++)
 	                {
 	                    if((temp[r]=='+')||(temp[r]=='*'))
@@ -1070,15 +1061,13 @@ public class ReactiveEngine implements AtlasClient {
 	                        for(Map.Entry<String,String> p: basicEvents.entrySet())
 	                        {
 	                            pp=p.getKey();
-	                          //  String s1[]=strtokens[i].split("_");
-	                            //String s2[]=s1[1].split("(");
 	                            if(strtokens.get(i).contains(pp))
 	                                yes=1;
 	                        }
 	                            if(yes==1){}
 	                            else
 	                            {
-	                                JOptionPane.showMessageDialog(this, "Servo with specified node ID not present"); 
+	                                JOptionPane.showMessageDialog(gui, "Servo with specified node ID not present"); 
 	                                 return;
 	                            }
 	                        
@@ -1101,16 +1090,18 @@ public class ReactiveEngine implements AtlasClient {
 	                    }
 	                    else
 	                    {
+	                    	
+	                    	//FIXME: Weird try catch block.  Why not an if then??
 	                    	try{
 	                            int k=Integer.parseInt(strtokens.get(i));
 	                            continue;
 	                        }
 	                    
 	                        catch(Exception e){
-	                        returnString=evaluate2(strtokens.get(i));
+	                        returnString=evaluateAction(strtokens.get(i));
 	                        if(returnString.matches("invalid"))
 	                        {
-	                            JOptionPane.showMessageDialog(this, strtokens.get(i)+"is not defined");
+	                            JOptionPane.showMessageDialog(gui, strtokens.get(i)+"is not defined");
 	                            return;
 	                        }
 	                        strtokens.set(i,returnString);
@@ -1144,12 +1135,12 @@ public class ReactiveEngine implements AtlasClient {
 	                String strsl[]=strspl[0].split("\\s");
 	                if(strspl.length<2)
 	                {
-	                    JOptionPane.showMessageDialog(this, "Invalid usage of Define Condition");
+	                    JOptionPane.showMessageDialog(gui, "Invalid usage of Define Condition");
 	                    return;
 	                }
 	                else if(strspl.length>2)
 	                {
-	                JOptionPane.showMessageDialog(this, "Invalid usage of Define Condition");
+	                JOptionPane.showMessageDialog(gui, "Invalid usage of Define Condition");
 	                return;
 	                }
 	                else if(strspl[1].trim().matches("true"))
@@ -1164,7 +1155,7 @@ public class ReactiveEngine implements AtlasClient {
 	                }
 	                else
 	                {
-	                JOptionPane.showMessageDialog(this, "Invalid usage of Define Condition,can only take true or false");
+	                JOptionPane.showMessageDialog(gui, "Invalid usage of Define Condition,can only take true or false");
 	                return;
 	                }
 	                
@@ -1177,7 +1168,7 @@ public class ReactiveEngine implements AtlasClient {
 	                String strsl[]=strspl[0].split("\\s");
 	                if(strspl.length>2)
 	                {
-	                JOptionPane.showMessageDialog(this, "Invalid usage of Define action");
+	                JOptionPane.showMessageDialog(gui, "Invalid usage of Define action");
 	                return;
 	                }
 	                String strtokens[]=strspl[1].split(";");
@@ -1201,7 +1192,7 @@ public class ReactiveEngine implements AtlasClient {
 	                            if(yes==1){}
 	                            else
 	                            {
-	                                JOptionPane.showMessageDialog(this, "Servo with specified node ID not present"); 
+	                                JOptionPane.showMessageDialog(gui, "Servo with specified node ID not present"); 
 	                                 return;
 	                            }
 	                        
@@ -1209,10 +1200,10 @@ public class ReactiveEngine implements AtlasClient {
 	                    }
 	                    else
 	                    {
-	                        returnString=evaluate1(strtokens[i]);
+	                        returnString = evaluateAtomicEvent(strtokens[i]);
 	                        if(returnString.matches("invalid"))
 	                        {
-	                            JOptionPane.showMessageDialog(this, strtokens[i]+"is invalid action, first define it"); 
+	                            JOptionPane.showMessageDialog(gui, strtokens[i]+"is invalid action, first define it"); 
 	                            return;
 	                        }
 	                        else
@@ -1240,23 +1231,23 @@ public class ReactiveEngine implements AtlasClient {
 	                String strsl[]=strspl[0].split("\\s");
 	                if(strspl.length>2)
 	                {
-	                JOptionPane.showMessageDialog(this, "Invalid usage of Define rule Condition");
+	                JOptionPane.showMessageDialog(gui, "Invalid usage of Define rule Condition");
 	                return;
 	                }
 	                else 
 	                {
 	                    String strclass[]=strspl[1].split(",");
 	                    	if(strclass.length>3){
-	    	                JOptionPane.showMessageDialog(this, "Invalid usage of Define rule Condition");
+	    	                JOptionPane.showMessageDialog(gui, "Invalid usage of Define rule Condition");
 	    	                return;
 	    	                }
 	                    	if(strclass.length<3)
 	                    	{
-	                    		JOptionPane.showMessageDialog(this, "Invalid usage of Define rule Condition");
+	                    		JOptionPane.showMessageDialog(gui, "Invalid usage of Define rule Condition");
 		    	                return;
 	                    	}
 	                    int check=0,check1=0,check2=0;
-	                    String str5;AtomicEvent a;
+	                    String str5;
 	                    
 	                    for(Map.Entry<String,AtomicEvent> e : eventList.entrySet())
 	                    {
@@ -1297,20 +1288,20 @@ public class ReactiveEngine implements AtlasClient {
 	                    }
 	                    else
 	                    {
-	                        JOptionPane.showMessageDialog(this, "Invalid rule - verify the entered event,condition and action");
+	                        JOptionPane.showMessageDialog(gui, "Invalid rule - verify the entered event,condition and action");
 	                        return;
 	                    }
 	                }
 	            }
 	            else
 	             {
-	                 JOptionPane.showMessageDialog(this, "Invalid usage of Define");
+	                 JOptionPane.showMessageDialog(gui, "Invalid usage of Define");
 	                 return;
 	            }
 	        } 
 	        else
 	        {
-	            JOptionPane.showMessageDialog(this, "RUN Mode is on, Stop and Define");
+	            JOptionPane.showMessageDialog(gui, "RUN Mode is on, Stop and Define");
 	            return;
 	        }
 	    }
@@ -1375,13 +1366,13 @@ public class ReactiveEngine implements AtlasClient {
 	            }
 	            else
 	            {
-	                 JOptionPane.showMessageDialog(this, "Condition variable can accept only either true or false");
+	                 JOptionPane.showMessageDialog(gui, "Condition variable can accept only either true or false");
 	                 return;
 	            }
 	       }
 	        else
 	        {
-	              JOptionPane.showMessageDialog(this, "Condition variable not present,please define it first");
+	              JOptionPane.showMessageDialog(gui, "Condition variable not present,please define it first");
 	              return;
 	        }
 	        
@@ -1391,10 +1382,9 @@ public class ReactiveEngine implements AtlasClient {
 	            
 	   void runCommand(String str)
 	   {
-	       String trimString=str.trim();
 	       if(run==1)
 	       {
-	           JOptionPane.showMessageDialog(this, "RUN mode is already on");
+	           JOptionPane.showMessageDialog(gui, "RUN mode is already on");
 	           return;
 	       }
 	       else
@@ -1406,10 +1396,9 @@ public class ReactiveEngine implements AtlasClient {
 	    
 	    void stopCommand(String str)
 	    {
-	        String trimString=str.trim();
 	       if(run==0)
 	        {
-	            JOptionPane.showMessageDialog(this, "RUN mode already off");
+	            JOptionPane.showMessageDialog(gui, "RUN mode already off");
 	            return;
 	        }
 	       else
@@ -1472,7 +1461,7 @@ public class ReactiveEngine implements AtlasClient {
 	        catch(Exception e)
 	        {
 	            e.printStackTrace();
-	              JOptionPane.showMessageDialog(this, "FILE NOT FOUND");        
+	              JOptionPane.showMessageDialog(gui, "FILE NOT FOUND");        
 	           return;
 	        }
 	        String temp=filecont+"";
@@ -1491,11 +1480,70 @@ public class ReactiveEngine implements AtlasClient {
 	    }
 	    else
 	    {
-	           JOptionPane.showMessageDialog(this, "Invalid Command");        
+	           JOptionPane.showMessageDialog(gui, "Invalid Command");        
 	           return;
 	    }
 
 	
+	}
+	
+	public void evaluateRule(Rule rule){
+		try {
+			boolean eventVal = eventList.get(rule.event).getTruthValue();
+			System.out.println("Rule Eval:" + rule.name + ":" + eventVal);
+			if (eventVal == true){
+				//event has occured
+				//check conditions here
+				boolean condVal = runtimeConditions.get(rule.condition).getValue();
+				if (condVal) {
+					//condition is true, trigger action
+					performAction(runtimeActions.get(rule.action));
+				}
+			}
+		}
+		catch(NullPointerException ne){
+			System.out.println("Condition, event or action was not found in the maps!");
+			ne.printStackTrace();
+		}
+		catch(Exception e){
+			e.printStackTrace();
+		}
+	}
+	
+	private void takeAction(String command) {
+		System.out.println("Taking Action:" + command);
+		StringTokenizer strTok = new StringTokenizer(command,"_()");
+		String nodeId;
+		String movement;
+		double move;
+		try {
+			nodeId = strTok.nextToken();
+			movement = strTok.nextToken();
+			move = Integer.parseInt(movement);
+			//FIXME this should probably be contained better
+			
+			//servo is the only actuator, hence this call. Else need a class hierarchy
+			//of actuators and fire the appropriate methods
+			//move = (move*100)/180;
+			moveServo(nodeId,(int)move);
+		}
+		catch(Exception e) {
+			System.out.println("Invalid action: " + command);
+		}
+		
+	}
+	
+	public void performAction(Action action){
+		try {
+			StringTokenizer strTok = new StringTokenizer(action.actionList,";");
+			while (strTok.hasMoreTokens()) {
+				takeAction(strTok.nextToken());
+			}
+		}
+		catch (NullPointerException ne){
+			System.out.println("Problem with the action list " + action.actionList);
+		}
+		
 	}
 
 }

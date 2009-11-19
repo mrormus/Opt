@@ -18,28 +18,8 @@
 package com.pervasa.demo.kitsample.impl;
 
 // awt/swing GUI components
-import java.util.Calendar;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.Properties;
-import java.util.Stack;
-import java.util.StringTokenizer;
-import java.util.concurrent.ConcurrentHashMap;
 import javax.swing.JFrame;
 
-import java.io.*;
-
-
-
-
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.util.ArrayList;
-import java.util.List;
-
-import javax.swing.JOptionPane;
 
 // used to access Knopflerfish's information about a bundle file
 import org.osgi.framework.BundleContext;
@@ -48,14 +28,6 @@ import org.osgi.framework.ServiceReference;
 
 // the main set of interfaces needed to develop Atlas applications
 import com.pervasa.atlas.dev.service.*;
-// the interface for the pressure sensor service
-import org.sensorplatform.sensors.pressure.InterlinkPressureSensor;
-import org.sensorplatform.sensors.temperature.TemperatureSensor;
-// the interface for the servo actuator service
-import org.sensorplatform.actuators.servo.hs322.HS322Servo;
-// the interface for the digital contact sensor service
-import org.sensorplatform.sensors.digitalcontact.DigitalContactSensor;
-import org.sensorplatform.sensors.humidity.HumiditySensor;
 
 //import the temperature and pressure sensors
 //import org.sensorplatform.sensors.humidity.HumiditySensor;
@@ -91,7 +63,6 @@ public class GUI extends JFrame {
     private javax.swing.JScrollPane jScrollPane2;
     private javax.swing.JTextArea jTextArea1;
     private javax.swing.JTextArea jTextArea2;
-    private javax.swing.JDialog jDialog2;
 
 
 	
@@ -105,9 +76,17 @@ public class GUI extends JFrame {
 	// KitSampleApp constructor
 	//   will be called by bundle's Activator class when started in Knopflerfish
 	public GUI (BundleContext context) {
-		r = new ReactiveEngine(context);
 		this.setVisible(true);
 		initGUI();
+		r = new ReactiveEngine(context, this, jTextArea2);
+	}
+	
+	public void addDevice(ServiceReference sref, AtlasService dev) {
+		this.r.addDevice(sref, dev);
+	}
+
+	public void removeDevice(ServiceReference sref) {
+		this.r.removeDevice(sref);
 	}
 
 	
