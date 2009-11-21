@@ -760,196 +760,217 @@ public class ReactiveEngine implements AtlasClient {
 	
 	//FIXME: Command parsing stuff could be separated.
 	
+	// LIST command 
 	
-	
-	 void listCommand(String str)
-	    {
+	 void listCommand(String str)	    {
 	        String trimString=str.trim();
 	        String strpp[]=trimString.split("\\s");
-	        StringBuffer str1=new StringBuffer();
-	        String str5;
-	        AtomicEvent a;
 	        if(strpp.length>2)
 	        {
-	        	 JOptionPane.showMessageDialog(gui, "Invalid usage of LIST");
-		            return;
+	        	 gui.error("Invalid usage of LIST");
+		         return;
 	        }
 	        if((trimString.endsWith("LIST"))&&(strpp.length<2))
 	        {
-	        	str1.append("\n----BASIC EVENTS----\n");
-	            
-	        	for(Map.Entry<String,String> e : basicEvents.entrySet())
-	            {
-	                 str1.append(e.getValue()+"\n");
-	                    
-	            }
-	        	str1.append("\n----BASIC ACTIONS----\n");
-	        	
-	            for(Map.Entry<String,String> p: basicActions.entrySet())
-	            {
-	                str1.append(p.getValue()+"\n");
-	            }
-	        	
-	        	
-	        	
-	        	
-	        	str1.append("\n----USER DEFINED EVENTS----\n");
-	        	
-	        	for(Map.Entry<String,AtomicEvent> e : eventList.entrySet())
-	            {
-	                str5=e.getKey();
-	                a=e.getValue();
-	                if(a.expression==null || a.expression=="")
-	                    str1.append(str5+"="+a.expansion+"\n");
-	                else
-	                    str1.append(str5+"="+a.expression+"\n");
-	                    
-	            }
-	       
-	            Condition print;
-	            
-	            str1.append("\n----SET CONDITIONS----\n");
-	            for(Map.Entry<String,Condition> e : runtimeConditions.entrySet())
-	            {
-	                print=e.getValue();
-	                str1.append(e.getKey()+"="+print.value+"\n");  
-	            }
-	            Action apo;
-	            str1.append("\n----USER DEFINED ACTIONS----\n");
-	            for(Map.Entry<String,Action> e: runtimeActions.entrySet())
-	            {
-	                apo=e.getValue();
-	                str1.append(e.getKey()+"="+apo.actionDisplay+"\n");
-	            }
-	             Rule  rpo;
-	             str1.append("\n----DEFINED RULES----\n");
-	            for(Map.Entry<String,Rule> e: rules.entrySet())
-	            {
-	                rpo=e.getValue();
-	                str1.append(e.getKey()+"="+rpo.event+","+rpo.condition+","+rpo.action+"\n");
-	            }  
+	        	listAll();
 	        }
 	        else if(strpp[1].matches("event"))
 	        {
-	        		str1.append("\n----BASIC EVENTS----\n");
-	            
-	        	for(Map.Entry<String,String> e : basicEvents.entrySet())
-	            {
-	                 str1.append(e.getValue()+"\n");
-	                    
-	            }
-	        	str1.append("\n----USER DEFINED EVENTS----\n");
-	           for(Map.Entry<String,AtomicEvent> e : eventList.entrySet())
-	            {
-	                str5=e.getKey();
-	                a=e.getValue();
-	                if(a.expression==null || a.expression=="")
-	                    str1.append(str5+"="+a.expansion+"\n");
-	                else
-	                    str1.append(str5+"="+a.expression+"\n");
-	                    
-	            }
+	        	listEvents();
 	        }
 	        else if(strpp[1].matches("condition"))
 	        {
-	            Condition print;
-	            str1.append("\n----SET CONDITIONS----\n");
-	            for(Map.Entry<String,Condition> e : runtimeConditions.entrySet())
-	            {
-	                print=e.getValue();
-	                str1.append(e.getKey()+"="+print.value+"\n");  
-	            }
+	            listConditions();
 	        }
 	        else if(strpp[1].matches("action"))
 	        {
-	            Action app;
-	            
-	            str1.append("\n----BASIC ACTIONS----\n");
-	        	
-	            for(Map.Entry<String,String> p: basicActions.entrySet())
-	            {
-	                str1.append(p.getValue()+"\n");
-	            }
-	        	
-	            str1.append("\n----USER DEFINED ACTIONS----\n");
-	            for(Map.Entry<String,Action> e: runtimeActions.entrySet())
-	            {
-	                app=e.getValue();
-	                str1.append(e.getKey()+"="+app.actionDisplay+"\n");
-	            }
+	        	listActions();
 	        }
 	        else if(strpp[1].matches("rule"))
 	        {
-	            Rule rp;
-	            str1.append("\n----USER DEFINE RULES----\n");
-	           for(Map.Entry<String,Rule> e: rules.entrySet())
-	            {
-	               rp=e.getValue();
-	                str1.append(e.getKey()+"="+rp.event+","+rp.condition+","+rp.action+"\n");
-	            }  
+	        	listRules();
 	        }
 	        else
 	        {
-	            JOptionPane.showMessageDialog(gui, "Invalid usage of List");  
-	            return;
+	        	gui.error("Invalid usage of LIST");
+		          return;
 	        }
-	        String str3=str1+"\n";
-	        jTextArea2.setText(str3); 
 	        
 	    }
+	 
+	 // Helper methods for LIST command implementation
+	 private void listAll() {
+		 StringBuffer s = new StringBuffer();
+		 s = appendBasicEvents(s);
+		 s = appendBasicActions(s);
+    	s = appendUserEvents(s);
+    	s = appendUserActions(s);
+    	s = appendConditions(s);
+    	s = appendRules(s);
+    	gui.setText(s + "\n");
+	 }
+	 
+	 private void listEvents() {
+		 StringBuffer s = new StringBuffer();
+		 s = appendBasicEvents(s);
+		 s = appendUserEvents(s);
+		 gui.setText(s + "\n");
+	 } 
+	 
+	 private void listActions() {
+		 StringBuffer s = new StringBuffer();
+		 s = appendBasicActions(s);
+		 s = appendUserActions(s);
+		 gui.setText(s + "\n");
+	 }
+	 
+	 private void listRules() {
+		 StringBuffer s = new StringBuffer();
+		 s = appendRules(s);
+		 gui.setText(s + "\n");
+	 }
+	 
+	 private void listConditions() {
+		 StringBuffer s = new StringBuffer();
+		 s = appendConditions(s);
+		 gui.setText(s + "\n");
+	 }
+	 	 
+	 private StringBuffer appendBasicEvents (StringBuffer s) {
+ 		s.append("\n----BASIC EVENTS----\n");
+        
+    	for(Map.Entry<String,String> e : basicEvents.entrySet())
+        {
+             s.append(e.getValue()+"\n");
+                
+        }
+    	return s;
+	 }
+	 
+	 private StringBuffer appendUserEvents(StringBuffer s) {
+		 AtomicEvent a;
+     	s.append("\n----USER DEFINED EVENTS----\n");
+        for(Map.Entry<String,AtomicEvent> e : eventList.entrySet())
+         {
+             String key = e.getKey();
+             a=e.getValue();
+             if(a.expression==null || a.expression=="")
+                 s.append(key+"="+a.expansion+"\n");
+             else
+                 s.append(key+"="+a.expression+"\n");
+                 
+         }
+
+        return s;
+	 }
+	 
+	 private StringBuffer appendConditions(StringBuffer s) {
+         Condition print;
+         s.append("\n----SET CONDITIONS----\n");
+         for(Map.Entry<String,Condition> e : runtimeConditions.entrySet())
+         {
+             print=e.getValue();
+             s.append(e.getKey()+"="+print.value+"\n");  
+         }
+         
+         return s;
+	 }
+	 
+	 private StringBuffer appendUserActions(StringBuffer s) {
+		 Action app;
+		 
+         s.append("\n----USER DEFINED ACTIONS----\n");
+         for(Map.Entry<String,Action> e: runtimeActions.entrySet())
+         {
+             app=e.getValue();
+             s.append(e.getKey()+"="+app.actionDisplay+"\n");
+         }
+         
+         return s;
+	 }
+	 
+	 private StringBuffer appendBasicActions(StringBuffer s) {
+         s.append("\n----BASIC ACTIONS----\n");
+     	
+         for(Map.Entry<String,String> p: basicActions.entrySet())
+         {
+        	 s.append(p.getValue()+"\n");
+         }
+         
+         return s;
+	 }
+	 
+	 private StringBuffer appendRules(StringBuffer s) {
+		 Rule rp;
+         
+         s.append("\n----USER DEFINED RULES----\n");
+         for(Map.Entry<String,Rule> e: rules.entrySet())
+         {
+            rp=e.getValue();
+            s.append(e.getKey()+"="+rp.event+","+rp.condition+","+rp.action+"\n");
+         }  
+        
+        return s;
+	 }
+	 
+ 
+	 // end LIST command
+	 
+	 // BASIC command
 	    
 	    void basicCommand(String str)
 	    {
 	        String trimString=str.trim();
 	        String strpn[]=trimString.split("\\s");
-	         StringBuffer str4=new StringBuffer();
 	        if(strpn.length>2)
 	        {
-	        	 JOptionPane.showMessageDialog(gui, "Invalid usage of BASIC");
+	        	 gui.error("Invalid usage of BASIC");
 		            return;
 	        }
 	        if(trimString.endsWith("BASIC")&&(strpn.length<2))
 	        {
-	        	 str4.append("\n\n\n----BASIC EVENTS----\n");
-	            for(Map.Entry<String,String> e : basicEvents.entrySet())
-	            {
-	                 str4.append(e.getValue()+"\n");
-	                    
-	            }
-	            str4.append("\n\n\n----BASIC ACTIONS----\n");
-	            for(Map.Entry<String,String> p: basicActions.entrySet())
-	            {
-	                str4.append(p.getValue()+"\n");
-	            }
+	        	listBasic();
 	        }
 	        
 	        
 	        else if(strpn[1].matches("event"))
 	        {
-	        	 str4.append("\n\n\n----BASIC EVENTS----\n");
-	             for(Map.Entry<String,String> e : basicEvents.entrySet())
-	            {
-	                 str4.append(e.getValue()+"\n");
-	                    
-	            }
+	        	 listBasicEvents();
 	        }
 	        
 	        else if(strpn[1].matches("action"))
 	        {
-	            for(Map.Entry<String,String> p: basicActions.entrySet())
-	            {
-	            	 str4.append("\n\n\n----BASIC ACTIONS----\n");
-	                str4.append(p.getValue()+"\n");
-	            }
+	            listBasicActions();
 	        }
 	        else
 	        {
-	            JOptionPane.showMessageDialog(gui, "Invalid usage of BASIC");
+	            gui.error("Invalid usage of BASIC");
 	            return;
 	        }
-	        String str6=str4+"\n";
-	        jTextArea2.setText(str6);
 	    }
+	    
+	    // helper methods for BASIC command
+	    
+		 private void listBasic() {
+			 StringBuffer s = new StringBuffer();
+			 s = appendBasicEvents(s);
+			 s = appendBasicActions(s);
+			 gui.setText(s + "\n");
+		 }
+		 
+		 private void listBasicEvents() {
+			 StringBuffer s = new StringBuffer();
+			 s = appendBasicEvents(s);
+			 gui.setText(s + "\n");
+		 }
+		 
+		 private void listBasicActions() {
+			 StringBuffer s = new StringBuffer();
+			 s = appendBasicActions(s);
+			 gui.setText(s + "\n");
+		 }
+		 
+		 // end BASIC command
 	    
 	    
 	    

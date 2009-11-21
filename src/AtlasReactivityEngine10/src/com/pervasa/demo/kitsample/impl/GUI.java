@@ -19,6 +19,7 @@ package com.pervasa.demo.kitsample.impl;
 
 // awt/swing GUI components
 import javax.swing.JFrame;
+import javax.swing.JOptionPane;
 
 
 // used to access Knopflerfish's information about a bundle file
@@ -80,6 +81,16 @@ public class GUI extends JFrame {
 		initGUI();
 		r = new ReactiveEngine(context, this, jTextArea2);
 	}
+	
+	 // Sets the textbox on the GUI to the provided string
+	 public void setText(String s) {
+		 jTextArea2.setText(s);
+	 }
+	 
+	 // pops up an error box
+	 public void error (String e) {
+		    JOptionPane.showMessageDialog(this, e);  
+	 }
 	
 	public void addDevice(ServiceReference sref, AtlasService dev) {
 		this.r.addDevice(sref, dev);
