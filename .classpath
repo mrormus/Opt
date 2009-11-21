@@ -10,6 +10,7 @@
 	<classpathentry kind="lib" path="src/AtlasReactivityEngine10/lib/HumiditySensorEmulator.jar"/>
 	<classpathentry kind="lib" path="src/AtlasReactivityEngine10/lib/InterlinkPressureSensorEmulator.jar"/>
 	<classpathentry kind="lib" path="src/AtlasReactivityEngine10/lib/TemperatureSensorEmulator.jar"/>
+	<classpathentry exported="true" kind="lib" path="src/AtlasReactivityEngine10/lib/java-cup-11a.jar"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
 	<classpathentry kind="output" path="src/AtlasReactivityEngine10/classes"/>
 </classpath>

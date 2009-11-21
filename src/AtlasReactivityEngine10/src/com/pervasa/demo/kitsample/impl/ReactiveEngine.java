@@ -5,6 +5,7 @@ import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collection;
@@ -38,7 +39,6 @@ public class ReactiveEngine implements AtlasClient {
 	// could be indicative of a problem.
 	private BundleContext context;
 	private GUI gui;
-	private JTextArea jTextArea2;
 	
     int run=0; /*FIXME: Make this boolean*/
     
@@ -106,7 +106,6 @@ public class ReactiveEngine implements AtlasClient {
 	protected boolean isSwitchOn;
 
 	public ReactiveEngine(BundleContext context, GUI gui, JTextArea jTextArea2) {
-		this.jTextArea2 = jTextArea2;
 		this.gui = gui;
 		this.context = context;
 		isSwitchOn = false;
@@ -799,7 +798,7 @@ public class ReactiveEngine implements AtlasClient {
 	    }
 	 
 	 // Helper methods for LIST command implementation
-	 private void listAll() {
+	 public void listAll() {
 		 StringBuffer s = new StringBuffer();
 		 s = appendBasicEvents(s);
 		 s = appendBasicActions(s);
@@ -810,27 +809,27 @@ public class ReactiveEngine implements AtlasClient {
     	gui.setText(s + "\n");
 	 }
 	 
-	 private void listEvents() {
+	 public void listEvents() {
 		 StringBuffer s = new StringBuffer();
 		 s = appendBasicEvents(s);
 		 s = appendUserEvents(s);
 		 gui.setText(s + "\n");
 	 } 
 	 
-	 private void listActions() {
+	 public void listActions() {
 		 StringBuffer s = new StringBuffer();
 		 s = appendBasicActions(s);
 		 s = appendUserActions(s);
 		 gui.setText(s + "\n");
 	 }
 	 
-	 private void listRules() {
+	 public void listRules() {
 		 StringBuffer s = new StringBuffer();
 		 s = appendRules(s);
 		 gui.setText(s + "\n");
 	 }
 	 
-	 private void listConditions() {
+	 public void listConditions() {
 		 StringBuffer s = new StringBuffer();
 		 s = appendConditions(s);
 		 gui.setText(s + "\n");
@@ -1428,9 +1427,17 @@ public class ReactiveEngine implements AtlasClient {
 	       }
 	    }        
 	        
+	    public void parse(String s) { 
+	    	try {
+	    		Lexer l = new Lexer(new StringReader(s));
+	    		parser p = new parser(l,this);
+	    		p.parse();
+	    	} catch (Exception e) {
+	    		gui.error(e.toString());
+	    	}
+	    }
 	    
-	    
-	public void  parse(String str)
+	public void  parseOld(String str)
 	{
 	   String trimString=str.trim();
 	   String strp[]=trimString.split("\\s");

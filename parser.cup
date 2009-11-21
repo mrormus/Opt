@@ -2,11 +2,6 @@
 
 import java_cup.runtime.*;
 
-/* Preliminaries to set up and use the scanner */
-/* (Scanner generated with JFlex, see scanner.jflex) */
-init with {: scanner.init();              :};
-scan with {: return scanner.next_token(); :};
-
 /* Terminals (tokens returned by the scanner) */
 terminal Integer NUMBER;
 terminal String  IDENTIFIER;
@@ -40,10 +35,15 @@ basic 	 ::= BASIC
 	 |   BASIC ACT
 	 ;
 list	 ::= LIST
+	 {: listAll(); :}
 	 |   LIST EVENT
+	 {: listEvents(); :}
 	 |   LIST ACT
+	 {: listActions(); :}
 	 |   LIST CONDITION
+	 {: listConditions(); :}
 	 |   LIST RULE
+	 {: listRules(); :}
 	 ;
 define	 ::= DEFINE EVENT IDENTIFIER EQUALS event
 	 |   DEFINE ACT IDENTIFIER EQUALS act
