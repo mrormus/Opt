@@ -1427,6 +1427,8 @@ public class ReactiveEngine implements AtlasClient {
 	       }
 	    }        
 	        
+	    
+	    // FIXME: Work in progress.  New parser.
 	    public void parse(String s) { 
 	    	try {
 	    		Lexer l = new Lexer(new StringReader(s));
