@@ -3,6 +3,13 @@ package java_cup.runtime;
 
 import java.util.Stack;
 
+import java_cup.runtime.DefaultSymbolFactory;
+import java_cup.runtime.Scanner;
+import java_cup.runtime.Symbol;
+import java_cup.runtime.SymbolFactory;
+import java_cup.runtime.lr_parser;
+import java_cup.runtime.virtual_parse_stack;
+
 /** This class implements a skeleton table driven LR parser.  In general,
  *  LR parsers are a form of bottom up shift-reduce parsers.  Shift-reduce
  *  parsers act by shifting input onto a parse stack until the Symbols 

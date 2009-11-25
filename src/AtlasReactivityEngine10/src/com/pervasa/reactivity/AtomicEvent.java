@@ -1,4 +1,4 @@
-package com.pervasa.demo.kitsample.impl;
+package com.pervasa.reactivity;
 
 //ameya: defined class to store events
 public class AtomicEvent {

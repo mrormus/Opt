@@ -1,6 +1,25 @@
 // CUP specification for ReactivityEngine parser
 
-import java_cup.runtime.*;
+package com.pervasa.reactivity;
+
+/* Preliminaries */
+parser code {:
+
+  ReactiveEngine re;
+  
+  public parser(Lexer l, ReactiveEngine re) {
+   	this(l);
+  	this.re = re;
+  }
+  
+  public void syntax_error(java_cup.runtime.Symbol current) {
+    report_error("Syntax error (" + current.sym + ")", current);
+  }
+  public void report_error(String message, java_cup.runtime.Symbol info) {
+    re.error(message);
+  }
+  
+:}
 
 /* Terminals (tokens returned by the scanner) */
 terminal Integer NUMBER;
@@ -12,8 +31,9 @@ terminal     	 LPAREN, RPAREN, LBRACKET, RBRACKET;
 terminal     	 SEMI, COMMA, WHACKWHACK;
 
 /* Non-terminals */
-non terminal 	 cmd, basic, list, define;
-non terminal	 event, condition, act, rule;
+non terminal cmd, basic, list, define;
+non terminal Boolean boolean;
+non terminal String act, acts, event, events, eventoperator;
 
 /* Precedences */
 precedence left PLUS;
@@ -21,49 +41,184 @@ precedence left STAR;
 precedence left SEMI;
 
 /* The grammar */
-cmd	 ::= basic
-	 |   list
-	 |   define
-	 |   SET IDENTIFIER EQUALS condition
-	 |   RUN
-	 |   STOP
-	 |   LOAD IDENTIFIER
-	 ;
+cmd	::=
+	  basic
+	| list
+	| define
+	| SET IDENTIFIER:i EQUALS boolean:b
+		{: parser.re.setCondition(i, b); :}
+	| RUN
+		{: parser.re.runCommand(); :}
+	| STOP
+		{: parser.re.stopCommand(); :}
+	| LOAD IDENTIFIER
+	;
 
-basic 	 ::= BASIC
-	 |   BASIC EVENT
-	 |   BASIC ACT
-	 ;
-list	 ::= LIST
-	 {: listAll(); :}
+basic ::= 
+	  BASIC
+		{: parser.re.listBasic(); :}
+	| BASIC EVENT
+		{: parser.re.listBasicEvents(); :}
+	| BASIC ACT
+		{: parser.re.listBasicActions(); :}
+	;
+	
+list ::=
+	 LIST
+	 {: parser.re.listAll(); :}
 	 |   LIST EVENT
-	 {: listEvents(); :}
+	 {: parser.re.listEvents(); :}
 	 |   LIST ACT
-	 {: listActions(); :}
+	 {: parser.re.listActions(); :}
 	 |   LIST CONDITION
-	 {: listConditions(); :}
+	 {: parser.re.listConditions(); :}
 	 |   LIST RULE
-	 {: listRules(); :}
+	 {: parser.re.listRules(); :}
 	 ;
-define	 ::= DEFINE EVENT IDENTIFIER EQUALS event
-	 |   DEFINE ACT IDENTIFIER EQUALS act
-	 |   DEFINE CONDITION IDENTIFIER EQUALS condition
-	 |   DEFINE RULE IDENTIFIER EQUALS rule
+	 
+define	 ::=
+	DEFINE EVENT IDENTIFIER:i EQUALS events:e
+	{: 
+		if (e.matches("")) {
+			// Empty string indicates that an invalid event was specified
+			// Therefore: do nothing
+		} else {
+			parser.re.defineEvent(i, e, e);
+		}
+	:}
+	|   DEFINE ACT IDENTIFIER:i EQUALS acts:a
+	{:
+		if (a.matches("")) {
+			// Empty string indicates that an invalid action was specified
+			// Therefore: do nothing.
+		} else {
+			parser.re.defineAction(i, a, a);
+		}
+	:}
+	 |   DEFINE CONDITION IDENTIFIER:i EQUALS boolean:b
+	{: parser.re.defineCondition(i, b); :}
+	 |   DEFINE RULE IDENTIFIER:i EQUALS WHACKWHACK IDENTIFIER:e COMMA IDENTIFIER:c COMMA IDENTIFIER:a WHACKWHACK
+	{: parser.re.defineRule(i, e, c, a); :}
 	 ;
 
-event  	  ::= IDENTIFIER LPAREN NUMBER RPAREN
-	  | IDENTIFIER LBRACKET NUMBER COMMA NUMBER RBRACKET
-	  | event PLUS event
-	  | event STAR event
-	  | event STAR NUMBER STAR event
+events ::= 
+	events:e1 eventoperator:o event:e2
+	{:
+		RESULT = "";
+		if (e2.matches("")) {
+			// Empty string indicates that e2 is an invalid event
+			// Therefore: do nothing
+		} else {
+			RESULT = e1 + o + e2;
+		}
+	:}
+	|
+	event:e
+	{:
+		RESULT = "";
+		if (e.matches("")) {
+			// Empty string indicates that e is an invalid event
+			// Therefore: do nothing
+		} else {
+			RESULT = e;
+		}
+	:}
+	;
+	
+eventoperator ::=
+	STAR
+	{: RESULT = "*"; :}
+	| PLUS
+	{: RESULT = "+"; :}
+	;
+	
+event ::=
+	event:e1 STAR NUMBER:n STAR event:e2
+	{:
+		RESULT = "";
+		if (e1.matches("") || e2.matches("")) {
+		} else { 
+			RESULT = e1 + "*" + n + "*" + e2;
+		}
+	:}
+	| IDENTIFIER:i LPAREN NUMBER:n RPAREN
+	{:
+		RESULT = "";
+		String basicEvent = i + "(" + n + ")";
+		if (parser.re.basicEventExists(i)) {
+			RESULT = basicEvent;
+		} else {
+			parser.re.error("Event '" + basicEvent + " does not exist.");
+		}
+	:}
+	| IDENTIFIER:i LBRACKET NUMBER:n1 COMMA NUMBER:n2 RBRACKET
+	{:
+		RESULT = "";
+	  	String basicEvent = i + "[" + n1 + "," + n2 + "]";
+	  	if (parser.re.basicEventExists(i)) {
+	  		RESULT = basicEvent;
+	  	} else {
+	  		parser.re.error("Event '" + basicEvent + " does not exist.");
+	  	}
+	:}
+	| IDENTIFIER:i
+	{:
+		RESULT = "";
+		String expansion = parser.re.evaluateAtomicEvent(i);
+		if (expansion.matches("invalid")) {
+			parser.re.error("Expansion of '" + i + " failed.");
+		} else {
+			RESULT = expansion;
+		}
+	:}
+	;	
+		
+boolean ::=
+	TRUE
+	{: RESULT = true; :}
+	  | FALSE
+	  {: RESULT = false; :}
 	  ;
 
-condition ::= TRUE
-	  |   FALSE
+acts ::=
+	acts:s1 SEMI act:s2
+	{:
+		RESULT = "";
+		if (s2.matches("")) {
+		} else {
+			RESULT = s1 + ";" + s2;
+		}
+	:}
+	|
+	act:s
+	{:
+		RESULT = "";
+		if (s.matches("")) {
+		} else {
+			RESULT = s;
+		}
+	:}
+	;
+	
+	
+act ::= 
+	IDENTIFIER:i
+	{:
+		RESULT = ""; 
+		String expansion = parser.re.evaluateAction(i);
+		if (expansion.matches("invalid")) {
+		} else {
+			RESULT = expansion;
+		}
+	:}
+	  |   IDENTIFIER:i LPAREN NUMBER:n RPAREN
+	 {:
+	 	RESULT = "";
+	  	String basicAction = i + "(" + n + ")";
+	  	if (parser.re.basicActionExists(i)) {
+	  		RESULT = basicAction;
+	  	} else {}
+	 :}
 	  ;
 
-act	  ::= act SEMI act
-	  |   IDENTIFIER LPAREN NUMBER RPAREN
-	  ;
-
-rule 	  ::= WHACKWHACK event COMMA condition COMMA act WHACKWHACK;
+	  

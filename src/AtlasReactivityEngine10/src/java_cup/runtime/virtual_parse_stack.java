@@ -3,6 +3,8 @@ package java_cup.runtime;
 
 import java.util.Stack;
 
+import java_cup.runtime.Symbol;
+
 /** This class implements a temporary or "virtual" parse stack that 
  *  replaces the top portion of the actual parse stack (the part that 
  *  has been changed by some set of operations) while maintaining its

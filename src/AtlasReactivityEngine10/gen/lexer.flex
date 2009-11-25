@@ -1,6 +1,8 @@
 /* Scanner for reading from the ReactiveEngine command line */
 /* Generator is JFlex */
 
+package com.pervasa.reactivity;
+
 import java_cup.runtime.*;
 
 /**
@@ -27,6 +29,7 @@ import java_cup.runtime.*;
 WhiteSpace	  = [ \t\f]
 Identifier     	  = [:jletter:] [:jletterdigit:]*
 DecIntegerLiteral = 0 | [1-9][0-9]*
+NL  = \n | \r | \r\n
 
 %state STRING
 
@@ -46,7 +49,7 @@ DecIntegerLiteral = 0 | [1-9][0-9]*
 /* subcommand */
 "EVENT"              { return symbol(sym.EVENT); }
 "CONDITION"              { return symbol(sym.CONDITION); }
-"ACT"              { return symbol(sym.ACT); }
+"ACTION"              { return symbol(sym.ACT); }
 "RULE"              { return symbol(sym.RULE); }
 
 /* conditions */
@@ -54,10 +57,10 @@ DecIntegerLiteral = 0 | [1-9][0-9]*
 "FALSE" 	      { return symbol(sym.FALSE); }
  
   /* identifiers */ 
-  {Identifier}                   { return symbol(sym.IDENTIFIER); }
+  {Identifier}                   { return symbol(sym.IDENTIFIER, new String(yytext())); }
  
   /* literals */
-  {DecIntegerLiteral}            { return symbol(sym.NUMBER); }
+  {DecIntegerLiteral}            { return symbol(sym.NUMBER, new Integer(yytext())); }
 
 
 
@@ -75,7 +78,7 @@ DecIntegerLiteral = 0 | [1-9][0-9]*
   ";"				{ return symbol(sym.SEMI); }
   ","				{ return symbol(sym.COMMA); }
   "\\"				{ return symbol(sym.WHACKWHACK); }
-
+  
   /* whitespace */
   {WhiteSpace}                   { /* ignore */ }
 }

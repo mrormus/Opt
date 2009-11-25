@@ -1,5 +1,7 @@
 package java_cup.runtime;
 
+import java_cup.runtime.Symbol;
+
 /**
  * Defines the Scanner interface, which CUP uses in the default
  * implementation of <code>lr_parser.scan()</code>.  Integration

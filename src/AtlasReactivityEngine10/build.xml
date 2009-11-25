@@ -1,6 +1,8 @@
 <?xml version="1.0"?>
 <project name="ReactiveEngine" default="all">
-	<target name="all" depends="init,compile,jar,jar2"/>
+	
+	<target name="all" depends="init,gen,compile,jar,jar2"/>
+
 	<target name="init">
 		<mkdir dir="./classes"/>
 		<mkdir dir="./jars"/>
@@ -8,18 +10,41 @@
 	
 	<property name="lib.dir"     value="lib"/>
 
-		<path id="classpath">
-			<fileset dir="${lib.dir}" includes="**/*.jar"/>
-		</path>
+	<path id="classpath">
+		<fileset dir="${lib.dir}" includes="**/*.jar"/>
+	</path> 
+	
+	<taskdef name="jflex" 
+		classname="JFlex.anttask.JFlexTask" 
+		classpathref="classpath"
+				
+	/>
+	
+	<taskdef name="cup"
+	  classname="java_cup.anttask.CUPTask"
+	  classpathref="classpath"
+	/> 
+	
+	<target name="gen">
+		<jflex file="./gen/lexer.flex"
+			destdir="./src"
+			verbose="on"
+		/>
+		<cup srcfile="./gen/parser.cup"
+		  	destdir="./src"
+	  		interface="true"
+		/>
+	</target>
 		
-		<target name="compile">
-			<javac destdir ="./classes"
-			       debug   ="on"
-			       srcdir  ="./src"
-				classpathref="classpath"
-			>
-			</javac>
-				</target>
+	<target name="compile">
+		<javac destdir ="./classes"
+		       debug   ="on"
+		       srcdir  ="./src"
+			classpathref="classpath"
+		>
+		</javac>
+	</target>
+
 	<target name="jar">
 		<jar basedir ="./classes"
 		     jarfile ="./jars/ReactiveEngine.jar"

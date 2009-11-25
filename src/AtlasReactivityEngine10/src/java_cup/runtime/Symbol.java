@@ -1,5 +1,7 @@
 package java_cup.runtime;
 
+import java_cup.runtime.Symbol;
+
 /**
  * Defines the Symbol class, which is used to represent all terminals
  * and nonterminals while parsing.  The lexer should pass CUP Symbols 

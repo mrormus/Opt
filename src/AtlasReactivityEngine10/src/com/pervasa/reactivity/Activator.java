@@ -13,7 +13,7 @@
  *  
  *  March 6, 2007
  */
-package com.pervasa.demo.kitsample.impl;
+package com.pervasa.reactivity;
 
 // Class implements BundleActivator (to hook the application into OSGi)
 //   and ServiceListener (to hook other services into the application)
@@ -33,7 +33,7 @@ import com.pervasa.atlas.dev.service.*;
 // An OSGi bundle is basically like a normal Java application, only instead of being
 //   instantiated in a static main() method, it is instantiated by an Activator class.
 //   Each bundle will have its own Activator. The Activator links the application into
-//   OSGi, implementing the life-cycle mangement (start, stop, etc.) and service
+//   OSGi, implementing the life-cycle management (start, stop, etc.) and service
 //   discovery and collaboration support.
 public class Activator implements BundleActivator, ServiceListener {
     private BundleContext context;
@@ -45,7 +45,7 @@ public class Activator implements BundleActivator, ServiceListener {
     	//   JAR file that contains the bundle).
     	this.context = context;
     	// instantiate the application
-        gui = new GUI(context);         
+        gui = new GUI();         
         System.out.println("*** Starting Kit Sample Application ***");
         // register to listen for other OSGi services as they come online, change, or go offline
         context.addServiceListener(this, "(objectClass="+ AtlasService.class.getName() + ")");

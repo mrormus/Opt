@@ -1,4 +1,4 @@
-package com.pervasa.demo.kitsample.impl;
+package com.pervasa.reactivity;
 
 public class Condition {
 	boolean value;

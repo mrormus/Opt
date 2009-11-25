@@ -1,5 +1,7 @@
 package java_cup.runtime;
 
+import java_cup.runtime.Symbol;
+
 /**
  * Creates the Symbols interface, which CUP uses as default
  *

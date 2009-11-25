@@ -1,8 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <classpath>
 	<classpathentry kind="src" path="src/AtlasReactivityEngine10/src"/>
-	<classpathentry kind="lib" path="src/AtlasReactivityEngine10/jars/ReactiveEngine.jar"/>
-	<classpathentry kind="lib" path="src/AtlasReactivityEngine10/jars/ReactiveEngine.old.jar"/>
 	<classpathentry kind="lib" path="src/AtlasReactivityEngine10/lib/AtlasDev.jar"/>
 	<classpathentry kind="lib" path="src/AtlasReactivityEngine10/lib/DigitalContactSensorEmulator.jar"/>
 	<classpathentry kind="lib" path="src/AtlasReactivityEngine10/lib/framework.jar"/>
@@ -10,6 +8,9 @@
 	<classpathentry kind="lib" path="src/AtlasReactivityEngine10/lib/HumiditySensorEmulator.jar"/>
 	<classpathentry kind="lib" path="src/AtlasReactivityEngine10/lib/InterlinkPressureSensorEmulator.jar"/>
 	<classpathentry kind="lib" path="src/AtlasReactivityEngine10/lib/TemperatureSensorEmulator.jar"/>
+	<classpathentry kind="lib" path="src/AtlasReactivityEngine10/lib/ant.jar"/>
+	<classpathentry kind="lib" path="src/AtlasReactivityEngine10/lib/java-cup-11a.jar"/>
+	<classpathentry kind="lib" path="src/AtlasReactivityEngine10/lib/JFlex.jar"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
 	<classpathentry kind="output" path="src/AtlasReactivityEngine10/classes"/>
 </classpath>
