@@ -96,6 +96,9 @@ public class ReactiveEngine implements AtlasClient {
 
 	// define a map here to store the servos that are online
 	Map<String, HS322Servo> servoMap = new HashMap<String, HS322Servo>();
+	
+	//Maps Node-Id to type of Sensor
+	Map<String, Integer> sensorType = new HashMap<String, Integer>();
 
 	// ameya:test variable here
 	public boolean filled = false;
@@ -112,79 +115,110 @@ public class ReactiveEngine implements AtlasClient {
 
 	// FIXME: Interface with middleware could be separated, probably
 
-	// this method is called by the KitSampleApp bundle's Activator when any
+	// this method is called by the Reactive Engine bundle's Activator when any
 	// service running
 	// in Knopflerfish starts or changes
 	// sref is the Knopflerfish ServiceReference ID of the new/changed service
 	// dev is a direct reference to the new/changed service
 	// AtlasService is an interface implemented by all Atlas sensor and actuator
 	// services, and is what allows an AtlasClient implementor (like
-	// KitSampleApp)
+	// the Reactive Engine)
 	// to bind with attached Atlas devices.
 	public void addDevice(ServiceReference sref, AtlasService dev) {
 		// if the pressure sensor service comes online, grab a reference to it,
 		// subscribe to its data stream, and update the pressure sensor
 		// service availability icon
 		if (dev instanceof InterlinkPressureSensor) {
+			
+			// Set references to the Pressure sensor emulator
 			refPressure = sref;
 			sensorPressure = (InterlinkPressureSensor) dev;
-			sensorPressure.subscribeToPressureData(this);
+			//sensorPressure.subscribeToPressureData(this);
 			// updateForce(true);
 
-			// ameya added function to put this sensor and range into hashmap
+			// Put sensor in a HashMap of BASIC EVENTS
 			String nodeId = sref.getProperty("Node-Id").toString();
 			addToBasicMap(nodeId, "Pressure", "[0,1000]");
+			
+			sensorType.put(sref.getProperty("Node-Id").toString(), SensorType.PRESSURE);
 		}
 		// if the servo service comes online, grab a reference to it and
 		// update the availability icon
 		else if (dev instanceof HS322Servo) {
+			
+			// Set references to the Servo sensor emulator
 			refServo = sref;
 			actuatorServo = (HS322Servo) dev;
 			// updateServo(true);
 
-			// ameya added action for this node in actions map
+			// Put actuator in a HashMap of BASIC ACTIONS
 			String nodeId = sref.getProperty("Node-Id").toString();
 			addToBasicActions(nodeId, "Servo", "[0,180]");
 
-			// also add this servo to the servomap
+			// Also add it to another HashMap?
+			/* FIXME: Check if it is redundant to add Servo to two HashMaps */
 			addToServoMap(nodeId, actuatorServo);
 		}
 		// if the digital contact sensor service comes online, grab a reference
 		// to it,
 		// subscribe to its data stream, and update the availability icon
 		else if (dev instanceof DigitalContactSensor) {
+			
+			// Not sure what the purpose of this is, maintain a log file? 
+			/* FIXME: See whether this can be removed (or uniformly implemented) */
 			writeStatusFile("Node ONLINE");
+			
+			// Set references to the Digital Contact sensor emulator
 			refContact = sref;
 			sensorContact = (DigitalContactSensor) dev;
-			sensorContact.subscribeToContactData(this);
+			
+			//sensorContact.subscribeToContactData(this);
 			// updateContact(true);
 
-			// ameya added function to put this sensor and range into hashmap
+			// Put sensor in HashMap of BASIC EVENTS
 			String nodeId = sref.getProperty("Node-Id").toString();
 			addToBasicMap(nodeId, "Contact", "[0,1]");
+			
+			sensorType.put(sref.getProperty("Node-Id").toString(), SensorType.CONTACT);
 		}
 
-		// ameya to detect temp sensors
+		// 
 		else if (dev instanceof TemperatureSensor) {
+			
+			// Set references to Temperature sensor emulator
 			refTemp = sref;
 			sensorTemp = (TemperatureSensor) dev;
-			sensorTemp.subscribeToSensorData(this);
-			System.out.println("Got a temp sensor");
+			
+			//sensorTemp.subscribeToSensorData(this);	
+			//System.out.println("Got a temp sensor");
+			
+			// Put sensor in HashMap of BASIC EVENTS
 			String nodeId = sref.getProperty("Node-Id").toString();
 			addToBasicMap(nodeId, "Temperature", "[-100,300]");
+			
+			sensorType.put(sref.getProperty("Node-Id").toString(), SensorType.TEMP);
 		}
-		// ameya to detect temp sensors
+		
+		// 
 		else if (dev instanceof HumiditySensor) {
+			
+			// Set references to Humidity sensor emulator
 			refHumid = sref;
 			sensorHumid = (HumiditySensor) dev;
-			sensorHumid.subscribeToSensorData(this);
-			System.out.println("Got a humid sensor");
+			
+			//sensorHumid.subscribeToSensorData(this);
+			//System.out.println("Got a humid sensor");
+			
+			// Put sensor in HashMap of BASIC EVENTS
 			String nodeId = sref.getProperty("Node-Id").toString();
 			addToBasicMap(nodeId, "Humidity", "[0,100]");
+			
+			sensorType.put(sref.getProperty("Node-Id").toString(), SensorType.HUMIDITY);
 		}
+		
 	}
 
-	// this method is called by the KitSampleApp bundle's Activator when any
+	// this method is called by the Reactive Engine bundle's Activator when any
 	// service
 	// running in Knopflerfish goes offline
 	// sref is the Knopflerfish ServiceReference ID of the departing service
@@ -281,6 +315,13 @@ public class ReactiveEngine implements AtlasClient {
 		// "measure-type" property will identify the sensor for this application
 		if (props.containsKey("measure-type"))
 			sensorMeasure = props.getProperty("measure-type");
+		else {
+			// If there is no measure type, then this is a serious error as we 
+			// cannot detect from which sensor the readings are coming from.
+			/* FIXME: Handle this well, give user indication of a potentially fatal problem */
+		}
+		
+		/* FIXME: Is parseInt the best way to convert String to Int? */
 		int sensorReading = Integer.parseInt(data);
 
 		// ameya: inserted code here to update event values on receiving this
@@ -289,9 +330,14 @@ public class ReactiveEngine implements AtlasClient {
 		// update the node value in the nodeValues. nodeValues is a Map which
 		// stores all the values of the nodes online now.
 		// a value is updated every time data is received
+		
+		// Remove old sensor reading in HashMap nodeValues (if it exists)
+		// which keeps latest readings of all sensors.
 		if (nodeValues.containsKey(nodeId)) {
 			nodeValues.remove(nodeId);
 		}
+		
+		// Update with new sensor reading in HashMap nodeValues
 		nodeValues.put(nodeId, data.toString());
 
 		// System.out.println("Current node values are here:");
@@ -302,23 +348,27 @@ public class ReactiveEngine implements AtlasClient {
 		// also if performance takes a hit, we might need to implementing a
 		// queue. need not be serialized cause this recvdData method will
 		// write to the queue and our thread will read from it.
-		if (run) {
+		//if (run) {
+		
+			// ???
 			updateEvents();
-			// evaluate and trigger any rules
+			// Check the rules to set if any actions need to be triggered.
 			checkRules();
-		}
+		//}
 
 		// ameya: code end
 
 		// if the reading comes from the pressure sensor, update the
 		// "force meter" (progress bar)
-		if (sensorMeasure.equalsIgnoreCase("pressure")) {
+		//if (sensorMeasure.equalsIgnoreCase("pressure")) {
 			// forceOutput.setValue(sensorReading);
 			// forceOutput.revalidate();
-		}
-		// if the reading comes from the digital contact sensor, update
-		// its icon and description appropriately
-		else if (sensorMeasure.equalsIgnoreCase("contact")) {
+		//}
+		// Update the Boolean variable isSwitchOn 
+		// depending on the new value of contact sensor.
+		/* FIXME: Don't like this method, not very elegant especially
+		 * when we already have an HashMap nodeValues for sensor readings */
+		if (sensorMeasure.equalsIgnoreCase("contact")) {
 			// (1 means the contact sensor is unpressed)
 			if (sensorReading == 1) {
 				if (isSwitchOn) {
@@ -337,6 +387,7 @@ public class ReactiveEngine implements AtlasClient {
 		}
 	}
 
+	/*FIXME: Depreciated method, remove? */
 	protected void writeStatusFile(String s) {
 		try {
 			PrintStream ps = new PrintStream(new FileOutputStream(
@@ -351,7 +402,7 @@ public class ReactiveEngine implements AtlasClient {
 	// ameya: added functions here for custom processing
 
 	public void addToServoMap(String nodeid, HS322Servo servo) {
-		System.out.println("Servo " + nodeid);
+		//System.out.println("Servo " + nodeid);
 		servoMap.put(nodeid, servo);
 	}
 
@@ -546,6 +597,7 @@ public class ReactiveEngine implements AtlasClient {
 		// split expr by +, *
 		// pass each split to evaluate function to get truth value
 		// if u get e*sec*e then directly put truth value
+		
 		String token;
 
 		int i = 0, start = 0, end = 0;
@@ -1019,6 +1071,15 @@ public class ReactiveEngine implements AtlasClient {
 	}
 
 	void defineEvent(String name, String expression, String expansion) {
+		
+		// Debugging snippet to see the difference between expression
+		// and expansion
+		
+		//System.err.println("Expression is " + expression);
+		//System.err.println("Expansion is " + expansion);
+		
+		/*FIXME: Debug snippet shows expression and expansion to be the same. ? */
+		
 		if (!run) {
 			if (!atomicEventExists(name)) {
 				AtomicEvent e = new AtomicEvent(name, expression, expansion);
@@ -1057,7 +1118,62 @@ public class ReactiveEngine implements AtlasClient {
 			JOptionPane.showMessageDialog(gui, "RUN mode is already on");
 			return;
 		} else {
-			run = true;
+			run = true; 
+
+			// iterate through rules checking if the condition is true
+			// and subscribing to the appropriate sensors if required.
+			
+			Iterator<String> rItr = rules.keySet().iterator();
+			String ruleid;
+			Rule rule;
+			while (rItr.hasNext()) {
+				ruleid = rItr.next();
+				rule = rules.get(ruleid);
+				
+				boolean condVal = runtimeConditions.get(rule.condition).getValue();
+				if (condVal) {
+					
+					// Debugging snippet
+					
+					System.err.println("Evaluating " + ruleid);
+					
+					// Subscribe to the sensors 
+					
+					AtomicEvent a = eventList.get(rule.event);
+					// Basically reduces something like N56(100) to N56 so that it can match 
+					// with sensorType
+					String exp = new String (a.expansion.toCharArray(), 0, a.expansion.lastIndexOf('('));
+					
+					if (!exp.contains("+") && !exp.contains("*")) {
+						
+						// Simple atomic event
+						
+						Integer sType = sensorType.get(exp);
+						
+						System.out.println(sType);
+						
+						switch (sType) {
+						
+						case SensorType.CONTACT : sensorContact.subscribeToContactData(this); 
+							System.out.println("Subscribed to Contact Data"); break;
+						case SensorType.PRESSURE : sensorPressure.subscribeToPressureData(this); break;
+						case SensorType.HUMIDITY : sensorHumid.subscribeToSensorData(this); break;
+						case SensorType.TEMP : sensorTemp.subscribeToSensorData(this); break;
+						
+						}
+						
+					}
+					
+					else {
+						
+						// Not a simple atomic event
+						
+					}
+					
+				}
+
+			}
+			
 		}
 
 	}
@@ -1068,6 +1184,7 @@ public class ReactiveEngine implements AtlasClient {
 			return;
 		} else {
 			run = false;
+			sensorContact.unsubscribeFromContactData(this);
 		}
 	}
 

@@ -38,7 +38,6 @@ import com.pervasa.atlas.dev.service.*;
 public class Activator implements BundleActivator, ServiceListener {
     private BundleContext context;
     private GUI gui;
-    private ReactiveEngine re;
     
     public void start(BundleContext context) throws Exception {
     	// the contextual information that OSGi knows about this bundle, which the
@@ -79,7 +78,6 @@ public class Activator implements BundleActivator, ServiceListener {
         		//   so use OSGi and the ServiceReference to grab the actual bundle for that
         		//   service, try casting it as an AtlasService and pass it to the application
         		AtlasService newDevice = (AtlasService)context.getService(sRef);
-        		//re.addDevice(sRef, newDevice);
         		gui.addDevice(sRef, newDevice);
    	      	}
         	catch (Exception ee1) {
@@ -94,7 +92,6 @@ public class Activator implements BundleActivator, ServiceListener {
     	//   any service it is using, and make adjustments until/unless an equivalent service
     	//   comes back
         if (event.getType() == ServiceEvent.UNREGISTERING) {
-        	//re.removeDevice(event.getServiceReference());
         	gui.removeDevice(event.getServiceReference());
         }
     }
