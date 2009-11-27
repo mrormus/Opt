@@ -33,7 +33,7 @@ terminal     	 SEMI, COMMA, WHACKWHACK;
 /* Non-terminals */
 non terminal cmd, basic, list, define;
 non terminal Boolean boolean;
-non terminal String act, acts, event, events, eventoperator;
+non terminal String act, acts, event, events, factor;
 
 /* Precedences */
 precedence left PLUS;
@@ -102,18 +102,45 @@ define	 ::=
 	 ;
 
 events ::= 
-	events:e1 eventoperator:o event:e2
+	events:e1 PLUS factor:e2
+	{:
+		RESULT = "";
+		if (e1.matches("") || e2.matches("")) {
+		} else { 
+			RESULT = e1 + "+" + e2;
+		}
+	:}
+	| factor:e
+	{:
+		RESULT = "";
+		if (e.matches("")) {
+		} else { 
+			RESULT = e;
+		}
+	:}
+	;
+	
+
+factor ::=
+	factor:e1 STAR NUMBER:n STAR event:e2
+	{:
+		RESULT = "";
+		if (e1.matches("") || e2.matches("")) {
+		} else { 
+			RESULT = e1 + "*" + n + "*" + e2;
+		}
+	:}
+	| factor:e1 STAR event:e2
 	{:
 		RESULT = "";
 		if (e2.matches("")) {
 			// Empty string indicates that e2 is an invalid event
 			// Therefore: do nothing
 		} else {
-			RESULT = e1 + o + e2;
+			RESULT = e1 + "*" + e2;
 		}
 	:}
-	|
-	event:e
+	| event:e
 	{:
 		RESULT = "";
 		if (e.matches("")) {
@@ -124,41 +151,24 @@ events ::=
 		}
 	:}
 	;
-	
-eventoperator ::=
-	STAR
-	{: RESULT = "*"; :}
-	| PLUS
-	{: RESULT = "+"; :}
-	;
-	
-event ::=
-	event:e1 STAR NUMBER:n STAR event:e2
+		
+event ::=		
+	IDENTIFIER:i LPAREN NUMBER:n RPAREN
 	{:
 		RESULT = "";
-		if (e1.matches("") || e2.matches("")) {
-		} else { 
-			RESULT = e1 + "*" + n + "*" + e2;
-		}
-	:}
-	| IDENTIFIER:i LPAREN NUMBER:n RPAREN
-	{:
-		RESULT = "";
-		String basicEvent = i + "(" + n + ")";
 		if (parser.re.basicEventExists(i)) {
-			RESULT = basicEvent;
+			RESULT = i + "(" + n + ")";
 		} else {
-			parser.re.error("Event '" + basicEvent + " does not exist.");
+			parser.re.error("Sensor '" + i + " does not exist.");
 		}
 	:}
 	| IDENTIFIER:i LBRACKET NUMBER:n1 COMMA NUMBER:n2 RBRACKET
 	{:
 		RESULT = "";
-	  	String basicEvent = i + "[" + n1 + "," + n2 + "]";
 	  	if (parser.re.basicEventExists(i)) {
-	  		RESULT = basicEvent;
+	  		RESULT = i + "[" + n1 + "," + n2 + "]";
 	  	} else {
-	  		parser.re.error("Event '" + basicEvent + " does not exist.");
+	  		parser.re.error("Sensor '" + i + " does not exist.");
 	  	}
 	:}
 	| IDENTIFIER:i
@@ -166,9 +176,9 @@ event ::=
 		RESULT = "";
 		String expansion = parser.re.evaluateAtomicEvent(i);
 		if (expansion.matches("invalid")) {
-			parser.re.error("Expansion of '" + i + " failed.");
+			parser.re.error("Expansion of '" + i + "' failed.");
 		} else {
-			RESULT = expansion;
+			RESULT = i;
 		}
 	:}
 	;	
