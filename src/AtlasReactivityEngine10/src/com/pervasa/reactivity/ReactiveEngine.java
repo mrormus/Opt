@@ -1,17 +1,13 @@
 package com.pervasa.reactivity;
 
-import java.io.BufferedReader;
 import java.io.FileOutputStream;
-import java.io.FileReader;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.io.StringReader;
-import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Stack;
@@ -19,7 +15,6 @@ import java.util.StringTokenizer;
 import java.util.concurrent.ConcurrentHashMap;
 
 import javax.swing.JOptionPane;
-import javax.swing.JTextArea;
 
 import org.osgi.framework.ServiceReference;
 import org.sensorplatform.actuators.servo.hs322.HS322Servo;
@@ -30,13 +25,6 @@ import org.sensorplatform.sensors.temperature.TemperatureSensor;
 
 import com.pervasa.atlas.dev.service.AtlasClient;
 import com.pervasa.atlas.dev.service.AtlasService;
-import com.pervasa.reactivity.Action;
-import com.pervasa.reactivity.AtomicEvent;
-import com.pervasa.reactivity.Condition;
-import com.pervasa.reactivity.GUI;
-import com.pervasa.reactivity.Lexer;
-import com.pervasa.reactivity.Rule;
-import com.pervasa.reactivity.parser;
 
 public class ReactiveEngine implements AtlasClient {
 
@@ -773,32 +761,6 @@ public class ReactiveEngine implements AtlasClient {
 
 	// FIXME: Command parsing stuff could be separated.
 
-	// LIST command
-
-	void listCommand(String str) {
-		String trimString = str.trim();
-		String strpp[] = trimString.split("\\s");
-		if (strpp.length > 2) {
-			gui.error("Invalid usage of LIST");
-			return;
-		}
-		if ((trimString.endsWith("LIST")) && (strpp.length < 2)) {
-			listAll();
-		} else if (strpp[1].matches("event")) {
-			listEvents();
-		} else if (strpp[1].matches("condition")) {
-			listConditions();
-		} else if (strpp[1].matches("action")) {
-			listActions();
-		} else if (strpp[1].matches("rule")) {
-			listRules();
-		} else {
-			gui.error("Invalid usage of LIST");
-			return;
-		}
-
-	}
-
 	// Helper methods for LIST command implementation
 	public void listAll() {
 		StringBuffer s = new StringBuffer();
@@ -911,31 +873,6 @@ public class ReactiveEngine implements AtlasClient {
 
 	// end LIST command
 
-	// BASIC command
-
-	void basicCommand(String str) {
-		String trimString = str.trim();
-		String strpn[] = trimString.split("\\s");
-		if (strpn.length > 2) {
-			gui.error("Invalid usage of BASIC");
-			return;
-		}
-		if (trimString.endsWith("BASIC") && (strpn.length < 2)) {
-			listBasic();
-		}
-
-		else if (strpn[1].matches("event")) {
-			listBasicEvents();
-		}
-
-		else if (strpn[1].matches("action")) {
-			listBasicActions();
-		} else {
-			gui.error("Invalid usage of BASIC");
-			return;
-		}
-	}
-
 	// helper methods for BASIC command
 
 	public void listBasic() {
@@ -993,16 +930,17 @@ public class ReactiveEngine implements AtlasClient {
 
 	void defineRule(String name, String e, String c, String a) {
 		if (!run) {
-			if (atomicEventExists(e) && conditionExists(c) && actionExists(a)
-					&& !ruleExists(name)) {
-				Rule r = new Rule(name, e, c, a);
-				rules.put(name, r);
-			} else {
-				gui.error("Rule '" + name + "' already exists");
-			}
-		} else {
-			gui.error("Cannot DEFINE while running.  STOP first.");
-		}
+			if (atomicEventExists(e)) {
+				if (conditionExists(c)) {
+					if (actionExists(a)) {
+						if (!ruleExists(name)) {
+							Rule r = new Rule(name, e, c, a);
+							rules.put(name, r);
+						} else {gui.error("Rule '" + name + "' already exists"); }
+					} else {gui.error("Action '" + a + "' does not exist"); }
+				} else {gui.error("Condition '" + c + "' does not exist"); }
+			} else {gui.error("Event '" + e + "' does not exist");}
+		} else {gui.error("Cannot DEFINE while running.  STOP first.");}
 	}
 
 	void defineCondition(String name, boolean b) {
@@ -1048,7 +986,8 @@ public class ReactiveEngine implements AtlasClient {
 		if (conditionExists(name)) {
 			runtimeConditions.get(name).value = b;
 		} else {
-			gui.error("Condition '" + name + "' does not exist.  Please define it first.");
+			gui.error("Condition '" + name
+					+ "' does not exist.  Please define it first.");
 		}
 	}
 
@@ -1070,7 +1009,6 @@ public class ReactiveEngine implements AtlasClient {
 			run = false;
 		}
 	}
-
 
 	public boolean basicActionExists(String s) {
 		return basicActions.containsKey(s);

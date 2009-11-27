@@ -6,6 +6,7 @@ public class AtomicEvent {
 	long startTime;
 	String expression;
 	String expansion;
+	AtomicEvent subevent1;
 	boolean value;
 	
 	public AtomicEvent(String name, String expression, String expansion){
