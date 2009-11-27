@@ -1,15 +1,22 @@
 package com.pervasa.reactivity;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.io.StringReader;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Scanner;
 import java.util.Stack;
 import java.util.StringTokenizer;
 import java.util.concurrent.ConcurrentHashMap;
@@ -31,7 +38,7 @@ public class ReactiveEngine implements AtlasClient {
 	private GUI gui;
 
 	boolean run = false;
-	
+
 	// Local references to the sensor services
 	private InterlinkPressureSensor sensorPressure = null;
 	private HS322Servo actuatorServo = null;
@@ -55,11 +62,11 @@ public class ReactiveEngine implements AtlasClient {
 	Map<String, AtomicEvent> eventList2 = new ConcurrentHashMap<String, AtomicEvent>();
 	Map<String, Condition> runtimeConditions = new ConcurrentHashMap<String, Condition>();
 	Map<String, Action> runtimeActions = new ConcurrentHashMap<String, Action>();
-	Map<String, Rule> rules = new HashMap<String, Rule>();	
+	Map<String, Rule> rules = new HashMap<String, Rule>();
 	// Node-Id to Type of Sensor
 	Map<String, Integer> sensorType = new HashMap<String, Integer>();
 
-	//Digital Contact sensor is on or off
+	// Digital Contact sensor is on or off
 	protected boolean isSwitchOn;
 
 	public ReactiveEngine(GUI gui) {
@@ -81,7 +88,7 @@ public class ReactiveEngine implements AtlasClient {
 	public void addDevice(ServiceReference sref, AtlasService dev) {
 
 		if (dev instanceof InterlinkPressureSensor) {
-			
+
 			// Set references to the Pressure sensor emulator
 			refPressure = sref;
 			sensorPressure = (InterlinkPressureSensor) dev;
@@ -89,14 +96,14 @@ public class ReactiveEngine implements AtlasClient {
 			// Put sensor in a HashMap of BASIC EVENTS
 			String nodeId = sref.getProperty("Node-Id").toString();
 			basicEvents.put(nodeId, nodeId + ",Pressure,[0,1000]");
-			
+
 			// Put sensor in a HashMap of SENSOR TYPES
-			sensorType.put(sref.getProperty("Node-Id").toString(), SensorType.PRESSURE);
+			sensorType.put(sref.getProperty("Node-Id").toString(),
+					SensorType.PRESSURE);
 		}
 
-		
 		else if (dev instanceof HS322Servo) {
-			
+
 			// Set references to the Servo sensor emulator
 			refServo = sref;
 			actuatorServo = (HS322Servo) dev;
@@ -104,14 +111,14 @@ public class ReactiveEngine implements AtlasClient {
 			// Put actuator in a HashMap of BASIC ACTIONS
 			String nodeId = sref.getProperty("Node-Id").toString();
 			basicActions.put(nodeId, nodeId + ",Servo,[0,180]");
-			
+
 			// Put actuator in a ServoMap
 			servoMap.put(nodeId, actuatorServo);
 
 		}
 
 		else if (dev instanceof DigitalContactSensor) {
-			
+
 			// Set references to the Digital Contact sensor emulator
 			refContact = sref;
 			sensorContact = (DigitalContactSensor) dev;
@@ -119,41 +126,43 @@ public class ReactiveEngine implements AtlasClient {
 			// Put sensor in HashMap of BASIC EVENTS
 			String nodeId = sref.getProperty("Node-Id").toString();
 			basicEvents.put(nodeId, nodeId + ",Contact,[0,1]");
-			
+
 			// Put sensor in HashMap of SENSOR TYPES
-			sensorType.put(sref.getProperty("Node-Id").toString(), SensorType.CONTACT);
+			sensorType.put(sref.getProperty("Node-Id").toString(),
+					SensorType.CONTACT);
 		}
 
 		// 
 		else if (dev instanceof TemperatureSensor) {
-			
+
 			// Set references to Temperature sensor emulator
 			refTemp = sref;
 			sensorTemp = (TemperatureSensor) dev;
-			
+
 			// Put sensor in HashMap of BASIC EVENTS
 			String nodeId = sref.getProperty("Node-Id").toString();
-			basicEvents.put(nodeId, nodeId + ",Temperature,[-100,300]");		
-			
+			basicEvents.put(nodeId, nodeId + ",Temperature,[-100,300]");
+
 			// Put sensor in HashMap of SENSOR TYPES
-			sensorType.put(sref.getProperty("Node-Id").toString(), SensorType.TEMP);
+			sensorType.put(sref.getProperty("Node-Id").toString(),
+					SensorType.TEMP);
 		}
-		
+
 		else if (dev instanceof HumiditySensor) {
-			
+
 			// Set references to Humidity sensor emulator
 			refHumid = sref;
 			sensorHumid = (HumiditySensor) dev;
 
-			
 			// Put sensor in HashMap of BASIC EVENTS
 			String nodeId = sref.getProperty("Node-Id").toString();
 			basicEvents.put(nodeId, nodeId + ",Humidity,[0,100]");
-			
+
 			// Put sensor in HashMap of SENSOR TYPES
-			sensorType.put(sref.getProperty("Node-Id").toString(), SensorType.HUMIDITY);
+			sensorType.put(sref.getProperty("Node-Id").toString(),
+					SensorType.HUMIDITY);
 		}
-		
+
 	}
 
 	// this method is called by the Reactive Engine bundle's Activator when any
@@ -171,7 +180,7 @@ public class ReactiveEngine implements AtlasClient {
 			sensorPressure = null;
 
 		}
-		
+
 		else if (sref == refServo) {
 			refServo = null;
 			actuatorServo = null;
@@ -187,8 +196,8 @@ public class ReactiveEngine implements AtlasClient {
 			refTemp = null;
 			sensorTemp = null;
 
-		} 
-		
+		}
+
 		else if (sref == refHumid) {
 			refHumid = null;
 			sensorTemp = null;
@@ -206,7 +215,7 @@ public class ReactiveEngine implements AtlasClient {
 	public void ReceivedData(String data, Properties props) {
 
 		String sensorMeasure = new String("Unknown");
-		
+
 		// Stores the Property keys in an array
 		String[] keysarr = new String[props.size()];
 		props.keySet().toArray(keysarr);
@@ -216,20 +225,23 @@ public class ReactiveEngine implements AtlasClient {
 		if (props.containsKey("measure-type"))
 			sensorMeasure = props.getProperty("measure-type");
 		else {
-			/* FIXME: Handle this well, give user indication of a potentially fatal problem */
+			/*
+			 * FIXME: Handle this well, give user indication of a potentially
+			 * fatal problem
+			 */
 		}
-		
+
 		// Update sensor reading value in nodeValues HashMap
 		int sensorReading = Integer.parseInt(data);
 		String nodeId = props.getProperty("Node-Id");
-		
+
 		if (nodeValues.containsKey(nodeId)) {
 			nodeValues.remove(nodeId);
 		}
-		
+
 		nodeValues.put(nodeId, data.toString());
 
-		// Change the truth values for the events 
+		// Change the truth values for the events
 		updateEvents();
 		// Check whether any rules need to be trigger
 		checkRules();
@@ -240,8 +252,7 @@ public class ReactiveEngine implements AtlasClient {
 				if (isSwitchOn) {
 					isSwitchOn = false;
 				}
-			}
-			else {
+			} else {
 				if (!isSwitchOn) {
 					isSwitchOn = true;
 				}
@@ -390,7 +401,7 @@ public class ReactiveEngine implements AtlasClient {
 		// split expr by +, *
 		// pass each split to evaluate function to get truth value
 		// if u get e*sec*e then directly put truth value
-		
+
 		String token;
 
 		int i = 0, start = 0, end = 0;
@@ -787,11 +798,21 @@ public class ReactiveEngine implements AtlasClient {
 						if (!ruleExists(name)) {
 							Rule r = new Rule(name, e, c, a);
 							rules.put(name, r);
-						} else {gui.error("Rule '" + name + "' already exists"); }
-					} else {gui.error("Action '" + a + "' does not exist"); }
-				} else {gui.error("Condition '" + c + "' does not exist"); }
-			} else {gui.error("Event '" + e + "' does not exist");}
-		} else {gui.error("Cannot DEFINE while running.  STOP first.");}
+						} else {
+							gui.error("Rule '" + name + "' already exists");
+						}
+					} else {
+						gui.error("Action '" + a + "' does not exist");
+					}
+				} else {
+					gui.error("Condition '" + c + "' does not exist");
+				}
+			} else {
+				gui.error("Event '" + e + "' does not exist");
+			}
+		} else {
+			gui.error("Cannot DEFINE while running.  STOP first.");
+		}
 	}
 
 	void defineCondition(String name, boolean b) {
@@ -808,15 +829,15 @@ public class ReactiveEngine implements AtlasClient {
 	}
 
 	void defineEvent(String name, String expression, String expansion) {
-		
+
 		// Debugging snippet to see the difference between expression
 		// and expansion
-		
-		//System.err.println("Expression is " + expression);
-		//System.err.println("Expansion is " + expansion);
-		
-		/*FIXME: Debug snippet shows expression and expansion to be the same. ? */
-		
+
+		// System.err.println("Expression is " + expression);
+		// System.err.println("Expansion is " + expansion);
+
+		/* FIXME: Debug snippet shows expression and expansion to be the same. ? */
+
 		if (!run) {
 			if (!atomicEventExists(name)) {
 				AtomicEvent e = new AtomicEvent(name, expression, expansion);
@@ -845,9 +866,9 @@ public class ReactiveEngine implements AtlasClient {
 	void setCondition(String name, boolean b) {
 		if (conditionExists(name)) {
 			runtimeConditions.get(name).value = b;
-			
+
 			subscriptionManager();
-			
+
 		} else {
 			gui.error("Condition '" + name
 					+ "' does not exist.  Please define it first.");
@@ -859,10 +880,10 @@ public class ReactiveEngine implements AtlasClient {
 			JOptionPane.showMessageDialog(gui, "RUN mode is already on");
 			return;
 		} else {
-			run = true; 
-			
+			run = true;
+
 			subscriptionManager();
-			
+
 		}
 
 	}
@@ -873,13 +894,13 @@ public class ReactiveEngine implements AtlasClient {
 			return;
 		} else {
 			run = false;
-			
+
 			// Unsubscribe from all the sensors once the engine stops running
-			
-			if (sensorContact != null){ 
+
+			if (sensorContact != null) {
 				sensorContact.unsubscribeFromContactData(this);
 			}
-			if (sensorPressure != null){
+			if (sensorPressure != null) {
 				sensorPressure.unsubscribeFromPressureData(this);
 			}
 			if (sensorHumid != null) {
@@ -988,63 +1009,87 @@ public class ReactiveEngine implements AtlasClient {
 	void error(String e) {
 		gui.error(e);
 	}
-	
-	void subscriptionManager () {
-		
+
+	void loadFile(String path) {
+		Scanner sc;
+		try {
+			sc = new Scanner(new File(path));
+			while (sc.hasNextLine()) {
+				parse(sc.nextLine());
+			}
+		} catch (FileNotFoundException e) {
+			error("File '" + System.getProperty("user.dir")
+					+ System.getProperty("file.separator") + path
+					+ "' not found.");
+		}
+	}
+
+	void subscriptionManager() {
+
 		// iterate through rules checking if the condition is true
 		// and subscribing to the appropriate sensors if required.
-		
+
 		Iterator<String> rItr = rules.keySet().iterator();
 		String ruleid;
 		Rule rule;
 		while (rItr.hasNext()) {
 			ruleid = rItr.next();
 			rule = rules.get(ruleid);
-			
+
 			boolean condVal = runtimeConditions.get(rule.condition).getValue();
 			if (condVal) {
-				
+
 				// Debugging snippet
-				
+
 				System.err.println("Evaluating " + ruleid);
-				
-				// Subscribe to the sensors 
-				
+
+				// Subscribe to the sensors
+
 				AtomicEvent a = eventList.get(rule.event);
-				// Basically reduces something like N56(100) to N56 so that it can match 
+				// Basically reduces something like N56(100) to N56 so that it
+				// can match
 				// with sensorType
-				String exp = new String (a.expansion.toCharArray(), 0, a.expansion.lastIndexOf('('));
-				
+				String exp = new String(a.expansion.toCharArray(), 0,
+						a.expansion.lastIndexOf('('));
+
 				if (!exp.contains("+") && !exp.contains("*")) {
-					
+
 					// Simple atomic event
-					
+
 					Integer sType = sensorType.get(exp);
-					
+
 					System.out.println(sType);
-					
+
 					switch (sType) {
-					
-					case SensorType.CONTACT : sensorContact.subscribeToContactData(this); 
-						System.out.println("Subscribed to Contact Data"); break;
-					case SensorType.PRESSURE : sensorPressure.subscribeToPressureData(this); break;
-					case SensorType.HUMIDITY : sensorHumid.subscribeToSensorData(this); break;
-					case SensorType.TEMP : sensorTemp.subscribeToSensorData(this); break;
-					
+
+					case SensorType.CONTACT:
+						sensorContact.subscribeToContactData(this);
+						System.out.println("Subscribed to Contact Data");
+						break;
+					case SensorType.PRESSURE:
+						sensorPressure.subscribeToPressureData(this);
+						break;
+					case SensorType.HUMIDITY:
+						sensorHumid.subscribeToSensorData(this);
+						break;
+					case SensorType.TEMP:
+						sensorTemp.subscribeToSensorData(this);
+						break;
+
 					}
-					
+
 				}
-				
+
 				else {
-					
+
 					// Not a simple atomic event
-					
+
 				}
-				
+
 			}
 
 		}
-		
+
 	}
 
 }

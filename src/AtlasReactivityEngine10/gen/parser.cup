@@ -51,7 +51,8 @@ cmd	::=
 		{: parser.re.runCommand(); :}
 	| STOP
 		{: parser.re.stopCommand(); :}
-	| LOAD IDENTIFIER
+	| LOAD IDENTIFIER:i
+		{: parser.re.loadFile(i); :}
 	;
 
 basic ::= 
