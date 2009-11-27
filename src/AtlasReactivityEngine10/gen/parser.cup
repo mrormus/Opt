@@ -33,7 +33,8 @@ terminal     	 SEMI, COMMA, WHACKWHACK;
 /* Non-terminals */
 non terminal cmd, basic, list, define;
 non terminal Boolean boolean;
-non terminal String act, acts, event, events, factor;
+non terminal String act, acts;
+non terminal OptEvent event, events, factor;
 
 /* Precedences */
 precedence left PLUS;
@@ -152,11 +153,11 @@ list ::=
 define	 ::=
 	DEFINE EVENT IDENTIFIER:i EQUALS events:e
 	{: 
-		if (e.matches("")) {
-			// Empty string indicates that an invalid event was specified
+		if (e == null) {
+			// null indicates that an invalid event was specified
 			// Therefore: do nothing
 		} else {
-			parser.re.defineEvent(i, e, e);
+			parser.re.defineEvent(i, e);
 		}
 	:}
 	|   DEFINE ACT IDENTIFIER:i EQUALS acts:a
@@ -177,16 +178,16 @@ define	 ::=
 events ::= 
 	events:e1 PLUS factor:e2
 	{:
-		RESULT = "";
-		if (e1.matches("") || e2.matches("")) {
+		RESULT = null;
+		if (e1 == null || e2 == null) {
 		} else { 
-			RESULT = e1 + "+" + e2;
+			RESULT = OptEvent.OR(e1,e2);
 		}
 	:}
 	| factor:e
 	{:
-		RESULT = "";
-		if (e.matches("")) {
+		RESULT = null;
+		if (e == null) {
 		} else { 
 			RESULT = e;
 		}
@@ -197,27 +198,27 @@ events ::=
 factor ::=
 	factor:e1 STAR NUMBER:n STAR event:e2
 	{:
-		RESULT = "";
-		if (e1.matches("") || e2.matches("")) {
+		RESULT = null;
+		if (e1 == null || e2 == null) {
 		} else { 
-			RESULT = e1 + "*" + n + "*" + e2;
+			RESULT = OptEvent.SECS(e1,n,e2);
 		}
 	:}
 	| factor:e1 STAR event:e2
 	{:
-		RESULT = "";
-		if (e2.matches("")) {
-			// Empty string indicates that e2 is an invalid event
+		RESULT = null;
+		if (e1 == null || e2 == null) {
+			// null indicates that e2 is an invalid event
 			// Therefore: do nothing
 		} else {
-			RESULT = e1 + "*" + e2;
+			RESULT = OptEvent.AND(e1,e2);
 		}
 	:}
 	| event:e
 	{:
-		RESULT = "";
-		if (e.matches("")) {
-			// Empty string indicates that e is an invalid event
+		RESULT = null;
+		if (e == null) {
+			// Null indicates that e is an invalid event
 			// Therefore: do nothing
 		} else {
 			RESULT = e;
@@ -228,31 +229,25 @@ factor ::=
 event ::=		
 	IDENTIFIER:i LPAREN NUMBER:n RPAREN
 	{:
-		RESULT = "";
+		RESULT = null;
 		if (parser.re.basicEventExists(i)) {
-			RESULT = i + "(" + n + ")";
+			RESULT = new OptEvent(parser.re.getDevice(i),n);
 		} else {
 			parser.re.error("Sensor '" + i + " does not exist.");
 		}
 	:}
 	| IDENTIFIER:i LBRACKET NUMBER:n1 COMMA NUMBER:n2 RBRACKET
 	{:
-		RESULT = "";
+		RESULT = null;
 	  	if (parser.re.basicEventExists(i)) {
-	  		RESULT = i + "[" + n1 + "," + n2 + "]";
+	  		RESULT = new OptEvent(parser.re.getDevice(i),n1,n2);
 	  	} else {
 	  		parser.re.error("Sensor '" + i + " does not exist.");
 	  	}
 	:}
 	| IDENTIFIER:i
 	{:
-		RESULT = "";
-		String expansion = parser.re.evaluateAtomicEvent(i);
-		if (expansion.matches("invalid")) {
-			parser.re.error("Expansion of '" + i + "' failed.");
-		} else {
-			RESULT = i;
-		}
+		RESULT = parser.re.getEvent(i);
 	:}
 	;	
 		

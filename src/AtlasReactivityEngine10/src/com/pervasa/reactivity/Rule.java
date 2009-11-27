@@ -2,12 +2,12 @@ package com.pervasa.reactivity;
 
 public class Rule {
 	String name;
-	String event;
+	OptEvent event;
 	String action;
 	String condition;
 	
 	
-	public Rule (String name, String event, String condition, String action){
+	public Rule (String name, OptEvent event, String condition, String action){
 		this.name = name;
 		this.event = event;
 		this.action = action;

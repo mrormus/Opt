@@ -56,10 +56,10 @@ public class ReactiveEngine implements AtlasClient {
 	// Maps
 	Map<String, String> nodeValues = new ConcurrentHashMap<String, String>();
 	Map<String, HS322Servo> servoMap = new HashMap<String, HS322Servo>();
-	Map<String, String> basicEvents = new HashMap<String, String>();
+	Map<String, Device> basicEvents = new HashMap<String, Device>();
 	Map<String, String> basicActions = new HashMap<String, String>();
-	Map<String, AtomicEvent> eventList = new ConcurrentHashMap<String, AtomicEvent>();
-	Map<String, AtomicEvent> eventList2 = new ConcurrentHashMap<String, AtomicEvent>();
+	Map<String, OptEvent> eventList = new ConcurrentHashMap<String, OptEvent>();
+	Map<String, OptEvent> eventList2 = new ConcurrentHashMap<String, OptEvent>();
 	Map<String, Condition> runtimeConditions = new ConcurrentHashMap<String, Condition>();
 	Map<String, Action> runtimeActions = new ConcurrentHashMap<String, Action>();
 	Map<String, Rule> rules = new HashMap<String, Rule>();
@@ -95,11 +95,12 @@ public class ReactiveEngine implements AtlasClient {
 
 			// Put sensor in a HashMap of BASIC EVENTS
 			String nodeId = sref.getProperty("Node-Id").toString();
-			basicEvents.put(nodeId, nodeId + ",Pressure,[0,1000]");
+			// FIXME: second argument needs to be actual sensor reading
+			basicEvents.put(nodeId, new Device(nodeId,DeviceType.PRESSURE,0));
 
 			// Put sensor in a HashMap of SENSOR TYPES
 			sensorType.put(sref.getProperty("Node-Id").toString(),
-					SensorType.PRESSURE);
+					DeviceType.PRESSURE);
 		}
 
 		else if (dev instanceof HS322Servo) {
@@ -125,11 +126,11 @@ public class ReactiveEngine implements AtlasClient {
 
 			// Put sensor in HashMap of BASIC EVENTS
 			String nodeId = sref.getProperty("Node-Id").toString();
-			basicEvents.put(nodeId, nodeId + ",Contact,[0,1]");
+			basicEvents.put(nodeId, new Device(nodeId,DeviceType.CONTACT,0));
 
 			// Put sensor in HashMap of SENSOR TYPES
 			sensorType.put(sref.getProperty("Node-Id").toString(),
-					SensorType.CONTACT);
+					DeviceType.CONTACT);
 		}
 
 		// 
@@ -141,11 +142,11 @@ public class ReactiveEngine implements AtlasClient {
 
 			// Put sensor in HashMap of BASIC EVENTS
 			String nodeId = sref.getProperty("Node-Id").toString();
-			basicEvents.put(nodeId, nodeId + ",Temperature,[-100,300]");
+			basicEvents.put(nodeId, new Device(nodeId, DeviceType.TEMP, 0));
 
 			// Put sensor in HashMap of SENSOR TYPES
 			sensorType.put(sref.getProperty("Node-Id").toString(),
-					SensorType.TEMP);
+					DeviceType.TEMP);
 		}
 
 		else if (dev instanceof HumiditySensor) {
@@ -156,11 +157,11 @@ public class ReactiveEngine implements AtlasClient {
 
 			// Put sensor in HashMap of BASIC EVENTS
 			String nodeId = sref.getProperty("Node-Id").toString();
-			basicEvents.put(nodeId, nodeId + ",Humidity,[0,100]");
+			basicEvents.put(nodeId, new Device(nodeId, DeviceType.HUMIDITY, 0));
 
 			// Put sensor in HashMap of SENSOR TYPES
 			sensorType.put(sref.getProperty("Node-Id").toString(),
-					SensorType.HUMIDITY);
+					DeviceType.HUMIDITY);
 		}
 
 	}
@@ -213,6 +214,9 @@ public class ReactiveEngine implements AtlasClient {
 	// props contains information about the sensor that produced the data
 	// (name, label, channel to which the device is connected, etc.
 	public void ReceivedData(String data, Properties props) {
+		
+		//FIXME debug
+		error("Received data");
 
 		String sensorMeasure = new String("Unknown");
 
@@ -261,9 +265,9 @@ public class ReactiveEngine implements AtlasClient {
 	}
 
 	// function to display the values in a map
-	public void showMap(Map<String, AtomicEvent> basicEvents) {
+	public void showMap(Map<String, OptEvent> basicEvents) {
 		System.out.println("Map is now:");
-		Iterator<AtomicEvent> i = basicEvents.values().iterator();
+		Iterator<OptEvent> i = basicEvents.values().iterator();
 		String nodeids;
 		while (i.hasNext()) {
 			nodeids = i.next().toString();
@@ -271,328 +275,15 @@ public class ReactiveEngine implements AtlasClient {
 		}
 	}
 
-	// FIXME: Engine logic rules could be separated
-
-	// function evaluates a composite event, something like e1*seconds*e2
-	public boolean evaluateCompositeEvent(String expr) {
-		String event[];
-		String event1;
-		String event2;
-		String timeDiff;
-		event = expr.split("&");
-		event1 = event[0];
-		timeDiff = event[1];
-		event2 = event[2].split("&")[0];
-		AtomicEvent ev;
-		boolean event1Truth = false, event2Truth = false;
-		long event1Time = 0, event2Time = 0;
-		long timeDuration = Long.parseLong(timeDiff);
-
-		Iterator<AtomicEvent> evItr = eventList.values().iterator();
-
-		while (evItr.hasNext()) {
-			ev = evItr.next();
-			System.out.println("Got new event " + ev.expansion
-					+ " Checking with " + event1 + " and " + event2);
-			if (ev.expansion.equalsIgnoreCase(event1)) {
-				event1Time = ev.startTime;
-				event1Truth = ev.getTruthValue();
-				System.out.println("Got event1 value as " + event1Truth + ":"
-						+ event1Time);
-				continue;
-			}
-			if (ev.expansion.equalsIgnoreCase(event2)) {
-				event2Time = ev.startTime;
-				event2Truth = ev.getTruthValue();
-				System.out.println("Got event2 value as " + event2Truth + ":"
-						+ event2Time);
-				continue;
-			}
-		}
-		System.out.println("Got values as : " + event1Truth + ":" + event1Time
-				+ " for event1 and " + event2Truth + ":" + event2Time);
-		if (event1Truth == true && event2Truth == true) {
-			if (((event2Time - event1Time) <= (timeDuration * 1000))
-					&& (event1Time != 0 && event2Time != 0)) {
-				System.out.println("Time less!!! diff is "
-						+ (event2Time - event1Time) + " needed is "
-						+ (timeDuration * 1000));
-				return true;
-			}
-		}
-		return false;
-	}
-
-	// function evaluates the truth value of an expression like q11(30) or
-	// q23[20,50]. returns true or false
-	public boolean evaluate(String expr) {
-		// assume u get someting like q11(30) or q23[20,50]
-		// split accordingly and evaluate using nodeValues hashtable which
-		// contains
-		// values of readings for all nodes
-		String nodeId;
-		String valueLower;
-		String valueHigher;
-		String value;
-		String sensorValue;
-		StringTokenizer strTok = new StringTokenizer(expr, "()[]");
-		StringTokenizer rangeTok = null;
-		int sensorVal = 0;
-
-		// System.out.println("Evaluating: " + expr);
-		try {
-			if (expr.contains("&")) {
-				// handle *seconds* type events here
-				return evaluateCompositeEvent(expr);
-			} else if (!expr.contains(",")) {
-				nodeId = strTok.nextToken();
-				value = strTok.nextToken();
-				sensorValue = nodeValues.get(nodeId);
-				if (sensorValue == null) {
-					return false;
-				}
-				// System.out.println("Sensor val:" +
-				// Integer.parseInt(sensorValue) + " " + nodeId + ":" + value);
-
-				if (Integer.parseInt(value) == Integer.parseInt(sensorValue)) {
-					return true;
-				} else {
-					return false;
-				}
-			} else {
-				nodeId = strTok.nextToken();
-				value = strTok.nextToken();
-				rangeTok = new StringTokenizer(value, ",");
-				valueLower = rangeTok.nextToken();
-				valueHigher = rangeTok.nextToken();
-				sensorValue = nodeValues.get(nodeId);
-				if (sensorValue == null) {
-					return false;
-				} else {
-					sensorVal = Integer.parseInt(sensorValue);
-				}
-				// System.out.println("Sensor val:" + sensorVal + " " + nodeId +
-				// ":" + valueLower + ":" + valueHigher);
-
-				if (sensorVal > Integer.parseInt(valueLower)
-						&& sensorVal < Integer.parseInt(valueHigher)) {
-					return true;
-				} else {
-					return false;
-				}
-			}
-
-		} catch (Exception e) {
-			System.out.println("ERROR: " + expr);
-			e.printStackTrace();
-			return false;
-		}
-
-		// return false;
-	}
-
-	// function replaces like q11(30) or q23[20,50] with T or F. this input
-	// string consisting of T and F will then be passed to parse
-	public String replaceWithTruthValues(String expr) {
-		// while replacing, you may not have the values of all sensors, the ones
-		// that
-		// did not send data yet. make sure you check this
-
-		// split expr by +, *
-		// pass each split to evaluate function to get truth value
-		// if u get e*sec*e then directly put truth value
-
-		String token;
-
-		int i = 0, start = 0, end = 0;
-		char ch;
-		StringBuilder str = new StringBuilder(expr);
-		while (i < str.length()) {
-			ch = str.charAt(i);
-			if (ch == '*') {
-				start = i;
-				i++;
-				if (Character.isDigit(str.charAt(i))) {
-					while (Character.isDigit(str.charAt(i))) {
-						i++;
-					}
-					if (str.charAt(i) != '*') {
-						System.out.println("Unexpected character "
-								+ str.charAt(i) + " in string " + str
-								+ " Quitting...");
-						System.exit(0);
-					} else {
-						end = i++;
-						str.setCharAt(start, '&');
-						str.setCharAt(end, '&');
-					}
-				} else {
-					continue;
-				}
-			} else {
-				i++;
-				continue;
-			}
-
-		}
-
-		// System.out.println("In replaceWithTruthValues::Got input: " + expr);
-		String truthExpr = str.toString();
-		expr = str.toString();
-		StringTokenizer strTok = new StringTokenizer(expr, "+*");
-		while (strTok.hasMoreTokens()) {
-			token = strTok.nextToken();
-			// System.out.println("Sent for eval: "+ token);
-			boolean tVal = evaluate(token);
-			if (tVal == true) {
-				truthExpr = truthExpr.replace(token, "T");
-			} else if (tVal == false) {
-				truthExpr = truthExpr.replace(token, "F");
-			} else {
-				// this should be a digit (*30* etc types) ignore
-				continue;
-			}
-			// System.out.println("New truthexpr is: " + truthExpr);
-		}
-		// System.out.println("Returning from replaceWithTruthValues:" +
-		// truthExpr);
-		return truthExpr;
-	}
-
-	// function determines the value of operations like T*F or T+T etc
-	public char atomicTruthEval(char op1, char op2, char opr) {
-		if (opr == '*') {
-			if (op1 == op2 && op1 == 'T') {
-				return 'T';
-			} else {
-				return 'F';
-			}
-		} else if (opr == '+') {
-			if (op1 == 'T' || op2 == 'T') {
-				return 'T';
-			} else {
-				return 'F';
-			}
-		} else {
-			return 'F';
-		}
-	}
-
-	// function parses the input string using a stack and returns a single truth
-	// value of the event.
-
-	public boolean parseEventValues(String expr) {
-		// use stack to shift and reduce to a single truth value
-		// input contains only T,F,*,+
-		Stack<Character> stack = new Stack<Character>();
-		StringBuilder input = new StringBuilder(expr);
-		char[] inputChar = new char[1];
-		char op1;
-		char op2;
-		char opr;
-		try {
-			// i = 0;
-			for (int i = 0; i < input.length(); i++) {
-				inputChar[0] = input.charAt(i);
-				// System.out.println("Char is :" + inputChar[0]);
-				switch (inputChar[0]) {
-				case 'T': {
-					stack.push(inputChar[0]);
-					// System.out.println("Pushed:" + inputChar[0]);
-					break;
-				}
-				case 'F': {
-					stack.push(inputChar[0]);
-					// System.out.println("Pushed:" + inputChar[0]);
-					break;
-				}
-				case '+': {
-					stack.push(inputChar[0]);
-					// System.out.println("Pushed:" + inputChar[0]);
-					break;
-				}
-				case '*': {
-					// op1 = 'T';
-					// op1 = stack.pop()[0];
-					op1 = stack.pop();
-					// op1 = test[0];
-					// System.out.println("POP:" + op1);
-					i++;
-					op2 = input.charAt(i);
-					// System.out.println("Got *, Popped and sent:" + op1 + ":"
-					// + op2);
-					op2 = atomicTruthEval(op1, op2, '*');
-					// System.out.println("Got truth val as:" + op2);
-					inputChar[0] = op2;
-					stack.push(inputChar[0]);
-					// System.out.println("Pushed:" + inputChar[0]);
-					break;
-				}
-				}
-
-			}
-
-			// System.out.println("Begin Eval in stack");
-			while (stack.size() > 1) {
-				op1 = stack.pop();
-				opr = stack.pop();
-				op2 = stack.pop();
-
-				// System.out.println("Popped and sent:" + op1 + ":" + op2 + ":"
-				// + opr);
-				inputChar[0] = atomicTruthEval(op1, op2, opr);
-				// System.out.println("Got truth val as:" + inputChar[0]);
-
-				stack.push(inputChar[0]);
-			}
-
-			op1 = stack.pop();
-
-			if (op1 == 'T') {
-				// System.out.println("Returning T");
-				return true;
-			} else {
-				// System.out.println("Returning F");
-				return false;
-			}
-		} catch (Exception e) {
-			System.out.println("Error Parsing");
-			return false;
-		}
-
-	}
-
+	
 	// this is the function called in receivedData method which triggers the
 	// checking of rules (events)
 	public void updateEvents() {
 		// get the sensor reading here and update all events in the
 		// eventsList hashtable
-		String truthValue;
-		boolean eventValue = false;
-		AtomicEvent a;
-		Collection<AtomicEvent> c = eventList.values();
-		Iterator<AtomicEvent> kItr = c.iterator();
-		// eventList.clear();
-		while (kItr.hasNext()) {
-			a = kItr.next();
-			if (a != null) {
-				// System.out.println("Sending Expansion: " + a.expansion);
-				truthValue = replaceWithTruthValues(a.expansion);
-				eventValue = parseEventValues(truthValue);
-				if (a.value != eventValue) {
-					System.out.println("Updated value of " + a.expansion
-							+ " to " + eventValue);
-					a.value = eventValue;
-					a.startTime = Calendar.getInstance().getTimeInMillis();
-				}
-				eventList2.put(a.name, a);
-				// System.out.println("Value of "+ a.expansion + " is " +
-				// eventValue);
-			}
+		for (OptEvent e: eventList.values()) {
+			e.update();
 		}
-		eventList.clear();
-		eventList.putAll(eventList2);
-		System.out.println("After updating events, map is:");
 		showMap(eventList);
 	}
 
@@ -666,24 +357,17 @@ public class ReactiveEngine implements AtlasClient {
 	private StringBuffer appendBasicEvents(StringBuffer s) {
 		s.append("\n----BASIC EVENTS----\n");
 
-		for (Map.Entry<String, String> e : basicEvents.entrySet()) {
-			s.append(e.getValue() + "\n");
+		for (Device d : basicEvents.values()) {
+			s.append(d + "\n");
 
 		}
 		return s;
 	}
 
 	private StringBuffer appendUserEvents(StringBuffer s) {
-		AtomicEvent a;
 		s.append("\n----USER DEFINED EVENTS----\n");
-		for (Map.Entry<String, AtomicEvent> e : eventList.entrySet()) {
-			String key = e.getKey();
-			a = e.getValue();
-			if (a.expression == null || a.expression == "")
-				s.append(key + "=" + a.expansion + "\n");
-			else
-				s.append(key + "=" + a.expression + "\n");
-
+		for (Map.Entry<String, OptEvent> e : eventList.entrySet()) {
+			s.append(e.getKey() + "=" + e.getValue().toString() + "\n");
 		}
 
 		return s;
@@ -758,6 +442,7 @@ public class ReactiveEngine implements AtlasClient {
 
 	// end BASIC command
 
+	/*
 	String evaluateAtomicEvent(String s) {
 		String k;
 		AtomicEvent a;
@@ -771,6 +456,7 @@ public class ReactiveEngine implements AtlasClient {
 		}
 		return "invalid";
 	}
+	*/
 
 	String evaluateAction(String s) {
 		String k;
@@ -792,11 +478,11 @@ public class ReactiveEngine implements AtlasClient {
 
 	void defineRule(String name, String e, String c, String a) {
 		if (!run) {
-			if (atomicEventExists(e)) {
+			if (userEventExists(e)) {
 				if (conditionExists(c)) {
 					if (actionExists(a)) {
 						if (!ruleExists(name)) {
-							Rule r = new Rule(name, e, c, a);
+							Rule r = new Rule(name, eventList.get(e), c, a);
 							rules.put(name, r);
 						} else {
 							gui.error("Rule '" + name + "' already exists");
@@ -828,7 +514,7 @@ public class ReactiveEngine implements AtlasClient {
 		}
 	}
 
-	void defineEvent(String name, String expression, String expansion) {
+	void defineEvent(String name, OptEvent e) {
 
 		// Debugging snippet to see the difference between expression
 		// and expansion
@@ -839,14 +525,32 @@ public class ReactiveEngine implements AtlasClient {
 		/* FIXME: Debug snippet shows expression and expansion to be the same. ? */
 
 		if (!run) {
-			if (!atomicEventExists(name)) {
-				AtomicEvent e = new AtomicEvent(name, expression, expansion);
+			if (!userEventExists(name)) {
+				e.assignName(name);
 				eventList.put(name, e);
 			} else {
 				gui.error("Event '" + name + "' already exists");
 			}
 		} else {
 			gui.error("Cannot DEFINE while running.  STOP first.");
+		}
+	}
+	
+	Device getDevice(String nodeID) {
+		if (basicEvents.containsKey(nodeID)) {
+			return basicEvents.get(nodeID);
+		} else {
+			error("Device '" + nodeID + "' does not exist.");
+			return null;
+		}
+	}
+	
+	OptEvent getEvent(String name) {
+		if (eventList.containsKey(name)) {
+			return eventList.get(name);
+		} else {
+			error("Event '" + name + "' does not exist.");
+			return null;
 		}
 	}
 
@@ -923,7 +627,11 @@ public class ReactiveEngine implements AtlasClient {
 	public boolean atomicEventExists(String s) {
 		return eventList.containsKey(s);
 	}
-
+	
+	public boolean userEventExists(String s) {
+		return eventList.containsKey(s);
+	}
+	
 	public boolean actionExists(String s) {
 		return runtimeActions.containsKey(s);
 	}
@@ -938,10 +646,10 @@ public class ReactiveEngine implements AtlasClient {
 
 	public void evaluateRule(Rule rule) {
 		try {
-			boolean eventVal = eventList.get(rule.event).getTruthValue();
+			boolean eventVal = rule.event.evaluate();
 			System.out.println("Rule Eval:" + rule.name + ":" + eventVal);
 			if (eventVal == true) {
-				// event has occured
+				// event has occurred
 				// check conditions here
 				boolean condVal = runtimeConditions.get(rule.condition)
 						.getValue();
@@ -1028,16 +736,22 @@ public class ReactiveEngine implements AtlasClient {
 
 		// iterate through rules checking if the condition is true
 		// and subscribing to the appropriate sensors if required.
+		//FIXME
+		System.err.println("subscription manager");
 
 		Iterator<String> rItr = rules.keySet().iterator();
 		String ruleid;
 		Rule rule;
 		while (rItr.hasNext()) {
+			//FIXME
+			System.err.println("checking a rule");
+			
 			ruleid = rItr.next();
 			rule = rules.get(ruleid);
 
 			boolean condVal = runtimeConditions.get(rule.condition).getValue();
 			if (condVal) {
+				System.err.println("condition is true");
 
 				// Debugging snippet
 
@@ -1045,44 +759,44 @@ public class ReactiveEngine implements AtlasClient {
 
 				// Subscribe to the sensors
 
-				AtomicEvent a = eventList.get(rule.event);
-				// Basically reduces something like N56(100) to N56 so that it
-				// can match
-				// with sensorType
-				String exp = new String(a.expansion.toCharArray(), 0,
-						a.expansion.lastIndexOf('('));
+				OptEvent e = eventList.get(rule.event);
+				System.err.println("got event");
 
-				if (!exp.contains("+") && !exp.contains("*")) {
+				if (e.isSimple()) {
+					System.err.println("simple event");
 
 					// Simple atomic event
 
-					Integer sType = sensorType.get(exp);
+					int sType = e.getSensorType();
 
 					System.out.println(sType);
 
 					switch (sType) {
 
-					case SensorType.CONTACT:
+					case DeviceType.CONTACT:
 						sensorContact.subscribeToContactData(this);
 						System.out.println("Subscribed to Contact Data");
 						break;
-					case SensorType.PRESSURE:
+					case DeviceType.PRESSURE:
 						sensorPressure.subscribeToPressureData(this);
 						break;
-					case SensorType.HUMIDITY:
+					case DeviceType.HUMIDITY:
 						sensorHumid.subscribeToSensorData(this);
 						break;
-					case SensorType.TEMP:
+					case DeviceType.TEMP:
 						sensorTemp.subscribeToSensorData(this);
 						break;
 
 					}
 
-				}
-
-				else {
+				} else {
+					System.err.println("composite event");
 
 					// Not a simple atomic event
+					sensorContact.subscribeToContactData(this);
+					sensorPressure.subscribeToPressureData(this);
+					sensorHumid.subscribeToSensorData(this);
+					sensorTemp.subscribeToSensorData(this);
 
 				}
 
