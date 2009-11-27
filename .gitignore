@@ -1,5 +1,1 @@
 *.class
-./src/AtlasReactivityEngine/jars/*
-./src/AtlasReactivityEngine/src/com/pervasa/reactivity/Lexer.java
-./src/AtlasReactivityEngine/src/com/pervasa/reactivity/parser.java
-./src/AtlasReactivityEngine/src/com/pervasa/reactivity/sym.java
