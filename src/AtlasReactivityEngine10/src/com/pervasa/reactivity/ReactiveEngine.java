@@ -748,7 +748,7 @@ public class ReactiveEngine implements AtlasClient {
 			
 			ruleid = rItr.next();
 			rule = rules.get(ruleid);
-
+			
 			boolean condVal = runtimeConditions.get(rule.condition).getValue();
 			if (condVal) {
 				System.err.println("condition is true");
@@ -759,7 +759,8 @@ public class ReactiveEngine implements AtlasClient {
 
 				// Subscribe to the sensors
 
-				OptEvent e = eventList.get(rule.event);
+				OptEvent e = rule.event;
+			
 				System.err.println("got event");
 
 				if (e.isSimple()) {
