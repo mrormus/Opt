@@ -215,9 +215,6 @@ public class ReactiveEngine implements AtlasClient {
 	// (name, label, channel to which the device is connected, etc.
 	public void ReceivedData(String data, Properties props) {
 		
-		//FIXME debug
-		error("Received data");
-
 		String sensorMeasure = new String("Unknown");
 
 		// Stores the Property keys in an array
@@ -441,22 +438,6 @@ public class ReactiveEngine implements AtlasClient {
 	}
 
 	// end BASIC command
-
-	/*
-	String evaluateAtomicEvent(String s) {
-		String k;
-		AtomicEvent a;
-
-		for (Map.Entry<String, AtomicEvent> p : eventList.entrySet()) {
-			k = p.getKey();
-			a = p.getValue();
-			if (k.matches(s)) {
-				return a.expansion;
-			}
-		}
-		return "invalid";
-	}
-	*/
 
 	String evaluateAction(String s) {
 		String k;
@@ -743,22 +724,17 @@ public class ReactiveEngine implements AtlasClient {
 
 		// iterate through rules checking if the condition is true
 		// and subscribing to the appropriate sensors if required.
-
-		System.err.println("subscription manager");
-
+		
 		Iterator<String> rItr = rules.keySet().iterator();
 		String ruleid;
 		Rule rule;
 		while (rItr.hasNext()) {
-
-			System.err.println("checking a rule");
 			
 			ruleid = rItr.next();
 			rule = rules.get(ruleid);
 			
 			boolean condVal = runtimeConditions.get(rule.condition).getValue();
 			if (condVal) {
-				System.err.println("condition is true");
 
 				// Debugging snippet
 
@@ -767,11 +743,8 @@ public class ReactiveEngine implements AtlasClient {
 				// Subscribe to the sensors
 
 				OptEvent e = rule.event;
-			
-				System.err.println("got event");
 
 				if (e.isSimple()) {
-					System.err.println("simple event");
 
 					// Simple atomic event
 
@@ -781,9 +754,7 @@ public class ReactiveEngine implements AtlasClient {
 					
 					subscribe(sType);
 
-
 				} else {
-					System.err.println("composite event");
 
 					// Not a simple atomic event
 					

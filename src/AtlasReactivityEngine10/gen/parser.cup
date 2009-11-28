@@ -13,7 +13,7 @@ parser code {:
   }
   
   public void syntax_error(java_cup.runtime.Symbol current) {
-    report_error("Syntax error (" + current.sym + ")", current);
+    report_error(Syntax.error(current), current);
   }
   public void report_error(String message, java_cup.runtime.Symbol info) {
     re.error(message);
