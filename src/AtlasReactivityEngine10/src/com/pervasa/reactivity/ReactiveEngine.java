@@ -570,8 +570,12 @@ public class ReactiveEngine implements AtlasClient {
 	void setCondition(String name, boolean b) {
 		if (conditionExists(name)) {
 			runtimeConditions.get(name).value = b;
-
-			subscriptionManager();
+			
+			
+			if (run == true) {
+				subscriptionManager();
+			}
+			
 
 		} else {
 			gui.error("Condition '" + name
@@ -731,19 +735,22 @@ public class ReactiveEngine implements AtlasClient {
 					+ "' not found.");
 		}
 	}
-
+	
+	// This method is called when the RE enters the RUN mode
+	// or when the SET command is used AND the RE is in RUN mode
+	
 	void subscriptionManager() {
 
 		// iterate through rules checking if the condition is true
 		// and subscribing to the appropriate sensors if required.
-		//FIXME
+
 		System.err.println("subscription manager");
 
 		Iterator<String> rItr = rules.keySet().iterator();
 		String ruleid;
 		Rule rule;
 		while (rItr.hasNext()) {
-			//FIXME
+
 			System.err.println("checking a rule");
 			
 			ruleid = rItr.next();
@@ -771,33 +778,16 @@ public class ReactiveEngine implements AtlasClient {
 					int sType = e.getSensorType();
 
 					System.out.println(sType);
+					
+					subscribe(sType);
 
-					switch (sType) {
-
-					case DeviceType.CONTACT:
-						sensorContact.subscribeToContactData(this);
-						System.out.println("Subscribed to Contact Data");
-						break;
-					case DeviceType.PRESSURE:
-						sensorPressure.subscribeToPressureData(this);
-						break;
-					case DeviceType.HUMIDITY:
-						sensorHumid.subscribeToSensorData(this);
-						break;
-					case DeviceType.TEMP:
-						sensorTemp.subscribeToSensorData(this);
-						break;
-
-					}
 
 				} else {
 					System.err.println("composite event");
 
 					// Not a simple atomic event
-					sensorContact.subscribeToContactData(this);
-					sensorPressure.subscribeToPressureData(this);
-					sensorHumid.subscribeToSensorData(this);
-					sensorTemp.subscribeToSensorData(this);
+					
+					findSimpleEvents(e);
 
 				}
 
@@ -805,6 +795,52 @@ public class ReactiveEngine implements AtlasClient {
 
 		}
 
+	}
+	
+	// Had to create a new function so that I could recurse :)
+	void findSimpleEvents (OptEvent compositeEvent) {
+		
+		
+		if (compositeEvent.left ==  null && compositeEvent.right == null) {
+			//We've reached a simple event, find it's sensor type and subscribe.
+			int sType = compositeEvent.getSensorType();
+			subscribe(sType);
+		}
+		
+		else {
+			if (compositeEvent.left != null) {
+				findSimpleEvents(compositeEvent.left);
+			}
+			if (compositeEvent.right != null) {
+				findSimpleEvents(compositeEvent.right);
+			}
+		}
+		
+	}
+	
+	// Subscribes to the appropriate sensor.
+	void subscribe (int sType) {
+		
+		switch (sType) {
+
+		case DeviceType.CONTACT:
+			sensorContact.subscribeToContactData(this);
+			System.out.println("Subscribed to Contact Data");
+			break;
+		case DeviceType.PRESSURE:
+			sensorPressure.subscribeToPressureData(this);
+			System.out.println("Subscribed to Pressure Data");
+			break;
+		case DeviceType.HUMIDITY:
+			sensorHumid.subscribeToSensorData(this);
+			System.out.println("Subscribed to Humidity Data");
+			break;
+		case DeviceType.TEMP:
+			sensorTemp.subscribeToSensorData(this);
+			System.out.println("Subscribed to Temperature Data");
+			break;
+		}
+		
 	}
 
 }
