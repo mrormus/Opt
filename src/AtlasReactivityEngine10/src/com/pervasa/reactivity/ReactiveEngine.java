@@ -92,8 +92,7 @@ public class ReactiveEngine implements AtlasClient {
 
 			// Put sensor in a HashMap of BASIC EVENTS
 			String nodeId = sref.getProperty("Node-Id").toString();
-			// FIXME: second argument needs to be actual sensor reading
-			basicEvents.put(nodeId, new Device(nodeId,DeviceType.PRESSURE,0));
+			basicEvents.put(nodeId, new Device(nodeId,DeviceType.PRESSURE,Device.NULL));
 
 		}
 
@@ -120,7 +119,7 @@ public class ReactiveEngine implements AtlasClient {
 
 			// Put sensor in HashMap of BASIC EVENTS
 			String nodeId = sref.getProperty("Node-Id").toString();
-			basicEvents.put(nodeId, new Device(nodeId,DeviceType.CONTACT,0));
+			basicEvents.put(nodeId, new Device(nodeId,DeviceType.CONTACT,Device.NULL));
 
 		}
 
@@ -133,7 +132,7 @@ public class ReactiveEngine implements AtlasClient {
 
 			// Put sensor in HashMap of BASIC EVENTS
 			String nodeId = sref.getProperty("Node-Id").toString();
-			basicEvents.put(nodeId, new Device(nodeId, DeviceType.TEMP, 0));
+			basicEvents.put(nodeId, new Device(nodeId, DeviceType.TEMP, Device.NULL));
 
 		}
 
@@ -145,7 +144,7 @@ public class ReactiveEngine implements AtlasClient {
 
 			// Put sensor in HashMap of BASIC EVENTS
 			String nodeId = sref.getProperty("Node-Id").toString();
-			basicEvents.put(nodeId, new Device(nodeId, DeviceType.HUMIDITY, 0));
+			basicEvents.put(nodeId, new Device(nodeId, DeviceType.HUMIDITY, Device.NULL));
 
 		}
 
@@ -227,7 +226,7 @@ public class ReactiveEngine implements AtlasClient {
 		for (OptEvent e: eventList.values()) {
 			e.update();
 		}
-		// Check whether any rules need to be trigger
+		// Check whether any rules need to be triggered
 		Iterator<String> rItr = rules.keySet().iterator();
 		String ruleid;
 		Rule rule;

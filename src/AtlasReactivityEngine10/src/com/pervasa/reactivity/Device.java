@@ -2,7 +2,8 @@ package com.pervasa.reactivity;
 
 class Device {
 	
-
+	static final int NULL = -999;
+	
 	private String nodeID;
 	private int deviceType;
 	private int value;
