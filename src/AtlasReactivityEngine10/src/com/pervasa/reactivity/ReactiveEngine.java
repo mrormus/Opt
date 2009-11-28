@@ -56,7 +56,7 @@ public class ReactiveEngine implements AtlasClient {
 	private ServiceReference refTemp = null;
 
 	// Maps
-	Map<String, String> nodeValues = new ConcurrentHashMap<String, String>();
+//	Map<String, String> nodeValues = new ConcurrentHashMap<String, String>();
 	Map<String, HS322Servo> servoMap = new HashMap<String, HS322Servo>();
 	Map<String, Device> basicEvents = new HashMap<String, Device>();
 	Map<String, String> basicActions = new HashMap<String, String>();
@@ -68,6 +68,8 @@ public class ReactiveEngine implements AtlasClient {
 	public ReactiveEngine(GUI gui) {
 		this.gui = gui;
 	}
+	
+	/* These functions communicate with the middleware */
 
 	// FIXME: Interface with middleware could be separated, probably
 
@@ -209,56 +211,23 @@ public class ReactiveEngine implements AtlasClient {
 		if (props.containsKey("measure-type"))
 			sensorMeasure = props.getProperty("measure-type");
 		else {
-			/*
-			 * FIXME: Handle this well, give user indication of a potentially
-			 * fatal problem
-			 */
+			// Probably should not come here
 		}
 
 		// Update sensor reading value in nodeValues HashMap
-		int sensorReading = Integer.parseInt(data);
+		
 		String nodeId = props.getProperty("Node-Id");
+		
+		Device d = basicEvents.get(nodeId);
+		
+		d.update(Integer.parseInt(data));
 
-		if (nodeValues.containsKey(nodeId)) {
-			nodeValues.remove(nodeId);
-		}
-
-		nodeValues.put(nodeId, data.toString());
 
 		// Change the truth values for the events
-		updateEvents();
-		// Check whether any rules need to be trigger
-		checkRules();
-
-	}
-
-	// function to display the values in a map
-	public void showMap(Map<String, OptEvent> basicEvents) {
-		System.out.println("Map is now:");
-		Iterator<OptEvent> i = basicEvents.values().iterator();
-		String nodeids;
-		while (i.hasNext()) {
-			nodeids = i.next().toString();
-			System.out.println(nodeids);
-		}
-	}
-
-	
-	// this is the function called in receivedData method which triggers the
-	// checking of rules (events)
-	public void updateEvents() {
-		
-		// get the sensor reading here and update all events in the
-		// eventList hashtable
 		for (OptEvent e: eventList.values()) {
 			e.update();
 		}
-		showMap(eventList);
-	}
-
-	// This function checks if any rules now need to be fired after the event
-	// updates
-	public void checkRules() {
+		// Check whether any rules need to be trigger
 		Iterator<String> rItr = rules.keySet().iterator();
 		String ruleid;
 		Rule rule;
@@ -267,7 +236,10 @@ public class ReactiveEngine implements AtlasClient {
 			rule = rules.get(ruleid);
 			evaluateRule(rule);
 		}
+
 	}
+
+
 
 	// This function moves the servo specified by the nodeid to a new position
 	public void moveServo(String nodeId, int move) {
@@ -282,10 +254,11 @@ public class ReactiveEngine implements AtlasClient {
 			e.printStackTrace();
 		}
 	}
+	
+	/* Display methods */
 
 	// FIXME: Command parsing stuff could be separated.
 
-	// Helper methods for LIST command implementation
 	public void listAll() {
 		StringBuffer s = new StringBuffer();
 		s = appendBasicEvents(s);
@@ -388,8 +361,6 @@ public class ReactiveEngine implements AtlasClient {
 		return s;
 	}
 
-	// helper methods for BASIC command
-
 	public void listBasic() {
 		StringBuffer s = new StringBuffer();
 		s = appendBasicEvents(s);
@@ -409,7 +380,7 @@ public class ReactiveEngine implements AtlasClient {
 		gui.updateConsole(s + "\n");
 	}
 
-	// end BASIC command
+	/* Command parsing for DEFINE methods */
 
 	String evaluateAction(String s) {
 		String k;

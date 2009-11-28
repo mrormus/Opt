@@ -300,6 +300,8 @@ class Window {
 
 		absStart = d1.plus(t1.getMillisOfDay());
 		absEnd = d2.plus(t2.getMillisOfDay());
+		
+		this.type = ABSOLUTE;
 
 	}
 
