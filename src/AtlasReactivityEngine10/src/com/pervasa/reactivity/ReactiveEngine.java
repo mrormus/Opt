@@ -64,15 +64,9 @@ public class ReactiveEngine implements AtlasClient {
 	Map<String, Condition> runtimeConditions = new ConcurrentHashMap<String, Condition>();
 	Map<String, Action> runtimeActions = new ConcurrentHashMap<String, Action>();
 	Map<String, Rule> rules = new HashMap<String, Rule>();
-	// Node-Id to Type of Sensor
-	Map<String, Integer> sensorType = new HashMap<String, Integer>();
-	
-	// Digital Contact sensor is on or off
-	protected boolean isSwitchOn;
 
 	public ReactiveEngine(GUI gui) {
 		this.gui = gui;
-		isSwitchOn = false;
 	}
 
 	// FIXME: Interface with middleware could be separated, probably
@@ -99,9 +93,6 @@ public class ReactiveEngine implements AtlasClient {
 			// FIXME: second argument needs to be actual sensor reading
 			basicEvents.put(nodeId, new Device(nodeId,DeviceType.PRESSURE,0));
 
-			// Put sensor in a HashMap of SENSOR TYPES
-			sensorType.put(sref.getProperty("Node-Id").toString(),
-					DeviceType.PRESSURE);
 		}
 
 		else if (dev instanceof HS322Servo) {
@@ -129,9 +120,6 @@ public class ReactiveEngine implements AtlasClient {
 			String nodeId = sref.getProperty("Node-Id").toString();
 			basicEvents.put(nodeId, new Device(nodeId,DeviceType.CONTACT,0));
 
-			// Put sensor in HashMap of SENSOR TYPES
-			sensorType.put(sref.getProperty("Node-Id").toString(),
-					DeviceType.CONTACT);
 		}
 
 		// 
@@ -145,9 +133,6 @@ public class ReactiveEngine implements AtlasClient {
 			String nodeId = sref.getProperty("Node-Id").toString();
 			basicEvents.put(nodeId, new Device(nodeId, DeviceType.TEMP, 0));
 
-			// Put sensor in HashMap of SENSOR TYPES
-			sensorType.put(sref.getProperty("Node-Id").toString(),
-					DeviceType.TEMP);
 		}
 
 		else if (dev instanceof HumiditySensor) {
@@ -160,9 +145,6 @@ public class ReactiveEngine implements AtlasClient {
 			String nodeId = sref.getProperty("Node-Id").toString();
 			basicEvents.put(nodeId, new Device(nodeId, DeviceType.HUMIDITY, 0));
 
-			// Put sensor in HashMap of SENSOR TYPES
-			sensorType.put(sref.getProperty("Node-Id").toString(),
-					DeviceType.HUMIDITY);
 		}
 
 	}
@@ -248,18 +230,6 @@ public class ReactiveEngine implements AtlasClient {
 		// Check whether any rules need to be trigger
 		checkRules();
 
-		// Update value of isSwitchOn if Contact sensor
-		if (sensorMeasure.equalsIgnoreCase("contact")) {
-			if (sensorReading == 1) {
-				if (isSwitchOn) {
-					isSwitchOn = false;
-				}
-			} else {
-				if (!isSwitchOn) {
-					isSwitchOn = true;
-				}
-			}
-		}
 	}
 
 	// function to display the values in a map
