@@ -37,7 +37,6 @@ non terminal String act, acts;
 non terminal OptEvent event, events, factor;
 non terminal Window window;
 non terminal EvalFreq eval_freq;
-non terminal ReportFreq report_freq; 
 
 /* Precedences */
 precedence left PLUS;
@@ -94,7 +93,7 @@ factor ::=
 event ::=		
 	  IDENTIFIER:i LPAREN NUMBER:n RPAREN
 	| IDENTIFIER:i LBRACKET NUMBER:n1 COMMA NUMBER:n2 RBRACKET
-	| LANGLE window COMMA eval_freq COMMA report_freq RANGLE LPAREN IDENTIFIER:i RPAREN
+	| LANGLE window COMMA eval_freq COMMA NUMBER:n RANGLE LPAREN IDENTIFIER:i RPAREN
 	| IDENTIFIER:i
 	;	
 	
@@ -107,11 +106,6 @@ window ::=
 eval_freq ::=
 	  NUMBER:n
 	;
-
-report_freq ::=
-	  NUMBER:n
-	| NUMBER:n PERCENT
-	; 
 	
 boolean ::=
 	  TRUE
@@ -264,13 +258,13 @@ event ::=
 	  		parser.re.error("Sensor '" + i + " does not exist.");
 	  	}
 	:}	
-	| LANGLE window:w COMMA eval_freq:e COMMA report_freq:r RANGLE LPAREN event:i RPAREN
+	| LANGLE window:w COMMA eval_freq:e COMMA NUMBER:n RANGLE LPAREN event:i RPAREN
 	{:
 		RESULT = null;
 		if (i == null) {
 			// do nothing
 		} else {
-			RESULT = OptEvent.TFM(i,w,e,r);
+			RESULT = OptEvent.TFM(i,w,e,n);
 		}
 	:}
 	| IDENTIFIER:i
@@ -301,17 +295,6 @@ eval_freq ::=
 	:}  
 	;
 
-report_freq ::=
-	NUMBER:n
-	{:
-		RESULT = ReportFreq.COUNT(n);
-	:}
-	| NUMBER:n PERCENT
-	{:
-		RESULT = ReportFreq.PERCENT(n);
-	:}
-	;
-		
 boolean ::=
 	  TRUE
 	{: RESULT = true; :}

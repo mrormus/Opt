@@ -12,11 +12,13 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Scanner;
+import java.util.Set;
 import java.util.Stack;
 import java.util.StringTokenizer;
 import java.util.concurrent.ConcurrentHashMap;
@@ -59,13 +61,12 @@ public class ReactiveEngine implements AtlasClient {
 	Map<String, Device> basicEvents = new HashMap<String, Device>();
 	Map<String, String> basicActions = new HashMap<String, String>();
 	Map<String, OptEvent> eventList = new ConcurrentHashMap<String, OptEvent>();
-	Map<String, OptEvent> eventList2 = new ConcurrentHashMap<String, OptEvent>();
 	Map<String, Condition> runtimeConditions = new ConcurrentHashMap<String, Condition>();
 	Map<String, Action> runtimeActions = new ConcurrentHashMap<String, Action>();
 	Map<String, Rule> rules = new HashMap<String, Rule>();
 	// Node-Id to Type of Sensor
 	Map<String, Integer> sensorType = new HashMap<String, Integer>();
-
+	
 	// Digital Contact sensor is on or off
 	protected boolean isSwitchOn;
 
@@ -276,8 +277,9 @@ public class ReactiveEngine implements AtlasClient {
 	// this is the function called in receivedData method which triggers the
 	// checking of rules (events)
 	public void updateEvents() {
+		
 		// get the sensor reading here and update all events in the
-		// eventsList hashtable
+		// eventList hashtable
 		for (OptEvent e: eventList.values()) {
 			e.update();
 		}
@@ -509,6 +511,9 @@ public class ReactiveEngine implements AtlasClient {
 			if (!userEventExists(name)) {
 				e.setName(name);
 				eventList.put(name, e);
+				//FIXME Debug output
+				System.err.println(e);
+				
 			} else {
 				gui.error("Event '" + name + "' already exists");
 			}
