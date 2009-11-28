@@ -46,8 +46,11 @@ public class Syntax {
 			Integer i = (Integer) symbol.value;
 			ret.append(i.toString());
 			break;
+		default:
+			ret.append("UNKNOWN");
 		}
-		ret.append("'");
+		
+		ret.append("'.");
 		
 		return ret.toString();
 	}

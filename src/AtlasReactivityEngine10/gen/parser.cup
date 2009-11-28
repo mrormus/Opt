@@ -23,18 +23,21 @@ parser code {:
 
 /* Terminals (tokens returned by the scanner) */
 terminal Integer NUMBER;
-terminal String  IDENTIFIER;
+terminal String  IDENTIFIER, DATE, TIME;
 terminal     	 DEFINE, LIST, BASIC, SET, RUN, STOP, LOAD;
 terminal     	 EVENT, CONDITION, ACT, RULE;
-terminal     	 EQUALS, TRUE, FALSE, PLUS, STAR;
-terminal     	 LPAREN, RPAREN, LBRACKET, RBRACKET;
-terminal     	 SEMI, COMMA, WHACKWHACK;
+terminal     	 EQUALS, TRUE, FALSE, PLUS, MINUS, STAR, PERCENT, NIL;
+terminal     	 LPAREN, RPAREN, LBRACKET, RBRACKET, LANGLE, RANGLE;
+terminal     	 SEMI, COMMA, SLASH, WHACKWHACK; 
 
 /* Non-terminals */
 non terminal cmd, basic, list, define;
 non terminal Boolean boolean;
 non terminal String act, acts;
 non terminal OptEvent event, events, factor;
+non terminal Window window;
+non terminal EvalFreq eval_freq;
+non terminal ReportFreq report_freq; 
 
 /* Precedences */
 precedence left PLUS;
@@ -91,9 +94,25 @@ factor ::=
 event ::=		
 	  IDENTIFIER:i LPAREN NUMBER:n RPAREN
 	| IDENTIFIER:i LBRACKET NUMBER:n1 COMMA NUMBER:n2 RBRACKET
+	| LANGLE window COMMA eval_freq COMMA report_freq RANGLE LPAREN IDENTIFIER:i RPAREN
 	| IDENTIFIER:i
 	;	
-		
+	
+window ::=
+	  NIL
+	| DATE:d1 SLASH TIME:t1 MINUS DATE:d2 SLASH TIME:t2
+	| TIME:t1 MINUS TIME:t2
+	;
+
+eval_freq ::=
+	  NUMBER:n
+	;
+
+report_freq ::=
+	  NUMBER:n
+	| NUMBER:n PERCENT
+	; 
+	
 boolean ::=
 	  TRUE
 	| FALSE
@@ -244,19 +263,61 @@ event ::=
 	  	} else {
 	  		parser.re.error("Sensor '" + i + " does not exist.");
 	  	}
+	:}	
+	| LANGLE window:w COMMA eval_freq:e COMMA report_freq:r RANGLE LPAREN event:i RPAREN
+	{:
+		RESULT = null;
+		if (i == null) {
+			// do nothing
+		} else {
+			RESULT = OptEvent.TFM(i,w,e,r);
+		}
 	:}
 	| IDENTIFIER:i
 	{:
 		RESULT = parser.re.getEvent(i);
 	:}
 	;	
+	
+window ::=
+	NIL
+	{:
+		RESULT = new Window();
+	:}
+	| DATE:d1 SLASH TIME:t1 MINUS DATE:d2 SLASH TIME:t2
+	{:
+		RESULT = new Window(d1,t1,d2,t2);
+	:}
+	| TIME:t1 MINUS TIME:t2
+	{:
+		RESULT = new Window(t1,t2);
+	:}
+	;
+
+eval_freq ::=
+	NUMBER:n
+	{:
+		RESULT = new EvalFreq(n);
+	:}  
+	;
+
+report_freq ::=
+	NUMBER:n
+	{:
+		RESULT = ReportFreq.COUNT(n);
+	:}
+	| NUMBER:n PERCENT
+	{:
+		RESULT = ReportFreq.PERCENT(n);
+	:}
+	;
 		
 boolean ::=
-	TRUE
+	  TRUE
 	{: RESULT = true; :}
-	  | FALSE
-	  {: RESULT = false; :}
-	  ;
+	| FALSE
+	{: RESULT = false; :}
+	;
 
 acts ::=
 	acts:s1 SEMI act:s2

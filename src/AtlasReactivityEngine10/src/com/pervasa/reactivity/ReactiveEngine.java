@@ -507,7 +507,7 @@ public class ReactiveEngine implements AtlasClient {
 
 		if (!run) {
 			if (!userEventExists(name)) {
-				e.assignName(name);
+				e.setName(name);
 				eventList.put(name, e);
 			} else {
 				gui.error("Event '" + name + "' already exists");

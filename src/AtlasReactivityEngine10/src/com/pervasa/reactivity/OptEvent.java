@@ -1,31 +1,51 @@
 package com.pervasa.reactivity;
 
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.Calendar;
+import java.util.Date;
 
-public class OptEvent {
+class OptEvent {
 
+	// Type indicators
 	public static final int STAR = 0;
 	public static final int PLUS = 1;
 	public static final int SECS = 2;
-	public static final int TFM = 3;
+	public static final int TFM  = 3;
 
-	String name;
+	// Fields common to all events
+	private String name;
 	boolean status = false;
 	long timeLastChanged = 0;
 
+	// Fields for a basic event
 	Device sensor;
 	int min;
 	int max;
 
+	// Fields for composite events
 	OptEvent left;
 	int operator;
 	int secs;
 	OptEvent right;
+	
+	// Fields for TFM events
+	OptEvent modifiedEvent;
+	Window window;
+	EvalFreq evalFreq;
+	ReportFreq reportFreq;
 
-	// Private constructor
+	/* Private Constructors */
+	
+	// For constructing composite events
 	private OptEvent(OptEvent left, OptEvent right) {
 		this.left = left;
 		this.right = right;
+	}
+	
+	// For constructing TFM events
+	private OptEvent(OptEvent modifiedEvent) {
+		this.modifiedEvent = modifiedEvent;
 	}
 
 	/* constructors */
@@ -66,17 +86,26 @@ public class OptEvent {
 		return e;
 	}
 
-	// Define a composite, time difference event (e1*secs*e2)
+	// Define a composite, time difference event: e1*secs*e2
 	static OptEvent SECS(OptEvent left, int secs, OptEvent right) {
 		OptEvent e = new OptEvent(left, right);
 		e.operator = SECS;
 		e.secs = secs;
 		return e;
 	}
+	
+	// Define a Time-Frequency-Modulated event: <W,Fe,Fr>(e)
+	static OptEvent TFM (OptEvent modifiedEvent, Window w, EvalFreq ef, ReportFreq rf) {
+		OptEvent e = new OptEvent(modifiedEvent);
+		e.window = w;
+		e.evalFreq = ef;
+		e.reportFreq = rf;
+		return e;
+	}
 
 	/* Functionality Methods */
-	
-	public void assignName(String name) {
+
+	public void setName(String name) {
 		this.name = name;
 	}
 
@@ -112,7 +141,7 @@ public class OptEvent {
 
 		return ret;
 	}
-	
+
 	public String getName() {
 		String ret = "";
 		if (name != null) {
@@ -122,15 +151,15 @@ public class OptEvent {
 		}
 		return ret;
 	}
-	
+
 	public String getSensorNodeID() {
 		return sensor.getNodeID();
 	}
-	
+
 	public int getSensorType() {
 		return sensor.getType();
 	}
-	
+
 	public boolean isSimple() {
 		return (left == null && right == null);
 	}
@@ -189,17 +218,134 @@ public class OptEvent {
 				updateStatus(left.evaluate() && right.evaluate());
 				break;
 			case SECS:
-				// TODO
 				updateStatus(left.evaluate()
 						&& right.evaluate()
 						&& (left.timeLastChanged - right.timeLastChanged) <= (secs * 1000));
 				break;
 			case TFM:
-				// TODO
+				updateStatus(tfmStatus());
 				break;
 			}
-
 		}
+	}
+	
+	private boolean tfmStatus() {
+		boolean ret = false;
+		if (window.withinWindow()) {
+			ret = modifiedEvent.evaluate();
+		}
+		return ret;
+
+	}
+
+}
+
+class Window {
+
+	private Date date1;
+	private Date time1;
+	private Date date2;
+	private Date time2;
+
+	static final int INFINITE = 0;
+	static final int ABSOLUTE = 1;
+	static final int RELATIVE = 2;
+
+	private int type;
+
+	public Window() {
+		this.type = INFINITE;
+	}
+
+	public Window(String date1, String time1, String date2, String time2) throws Exception {
+
+		try {
+			SimpleDateFormat df = new SimpleDateFormat("MM/dd/yy");
+			this.date1 = df.parse(date1);
+			this.date2 = df.parse(date2);
+
+			df.applyPattern("HH:mm:ss");
+			this.time1 = df.parse(time1);
+			this.time2 = df.parse(time2);
+		} catch (ParseException e) {
+			throw new Exception("Parsing error while creating time window for TFM event");
+		}
+
+		this.type = ABSOLUTE;
+	}
+
+	public Window(String time1, String time2) {
+
+		try {
+			SimpleDateFormat df = new SimpleDateFormat("HH:mm:ss");
+			this.time1 = df.parse(time1);
+			this.time2 = df.parse(time2);
+		} catch (ParseException e) {
+			// FIXME: I have no idea what to do in this case
+			System.err.println("Couldn't parse strings, please restart RE.");
+		}
+
+		this.type = RELATIVE;
+	}
+	
+	public boolean withinWindow() {
+		boolean ret = false;
+		switch (type) {
+		case INFINITE:
+			// Always within window, return true
+			ret = true;
+			break;
+		case RELATIVE:
+			// Compare the current HH:mm:ss to the window
+			// TODO
+			break;
+		case ABSOLUTE:
+			// Compare the current time to this window's date/times
+			// TODO
+			break;
+		}
+		return ret;
+	}
+	
+}
+
+class EvalFreq {
+	
+	private int secs;
+	
+	public EvalFreq (Integer n) {
+		this.secs = n;
+	}
+
+}
+
+class ReportFreq {
+	
+	static final int ZERO = 0;
+	static final int PERCENT = 1;
+	static final int COUNT = 2;
+	
+	private int n;
+	private int type;
+	
+	private ReportFreq(int type) {
+		this.type = type;
+	}
+	
+	static ReportFreq ZERO () {
+		return new ReportFreq(ZERO);
+	}
+	
+	static ReportFreq COUNT (Integer n) {
+		ReportFreq rf = new ReportFreq(COUNT);
+		rf.n = n;
+		return rf;
+	}
+	
+	static ReportFreq PERCENT (Integer n) {
+		ReportFreq rf = new ReportFreq(PERCENT);
+		rf.n = n;
+		return rf;
 	}
 
 }
