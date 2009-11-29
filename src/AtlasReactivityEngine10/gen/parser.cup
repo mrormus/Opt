@@ -258,7 +258,7 @@ event ::=
 	  		parser.re.error("Sensor '" + i + "' does not exist.");
 	  	}
 	:}	
-	| LANGLE window:w COMMA eval_freq:e COMMA NUMBER:n RANGLE LPAREN event:i RPAREN
+	| LANGLE window:w COMMA eval_freq:e COMMA NUMBER:n RANGLE LPAREN events:i RPAREN
 	{:
 		RESULT = null;
 		if (i == null) {
