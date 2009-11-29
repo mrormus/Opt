@@ -1,25 +1,13 @@
 package com.pervasa.reactivity;
 
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.FileReader;
-import java.io.IOException;
-import java.io.PrintStream;
 import java.io.StringReader;
-import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Scanner;
-import java.util.Set;
-import java.util.Stack;
 import java.util.StringTokenizer;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -56,7 +44,6 @@ public class ReactiveEngine implements AtlasClient {
 	private ServiceReference refTemp = null;
 
 	// Maps
-//	Map<String, String> nodeValues = new ConcurrentHashMap<String, String>();
 	Map<String, HS322Servo> servoMap = new HashMap<String, HS322Servo>();
 	Map<String, Device> basicEvents = new HashMap<String, Device>();
 	Map<String, String> basicActions = new HashMap<String, String>();

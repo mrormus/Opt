@@ -215,10 +215,8 @@ class OptEvent {
 	// Propagate truth values down through this event tree
 	void update() {
 		System.out.println("Updating event '" + getName() + "'");
-		if (left == null && right == null) {
-			// Simple event: Status is directly based on a sensor reading
-			updateSimpleEvent();
-		} else if (left != null && right != null) {
+
+		if (left != null && right != null) {
 
 			// Composite event: has children
 
@@ -242,6 +240,9 @@ class OptEvent {
 			}
 		} else if (modifiedEvent != null) {
 			updateStatus(updateTFM());
+		} else if (left == null && right == null && modifiedEvent == null) {
+			// Simple event: Status is directly based on a sensor reading
+			updateSimpleEvent();
 		} else {
 			System.err.println("Severe error: Event improperly defined");
 		}

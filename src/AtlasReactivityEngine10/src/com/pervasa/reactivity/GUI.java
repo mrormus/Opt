@@ -119,7 +119,7 @@ public class GUI extends JFrame {
 		jTextArea3 = new javax.swing.JTextArea();
 		jLabel3 = new javax.swing.JLabel();
 
-		setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
+		setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
 		setMinimumSize(new java.awt.Dimension(800, 600));
 		addComponentListener(new java.awt.event.ComponentAdapter() {
 			public void componentHidden(java.awt.event.ComponentEvent evt) {

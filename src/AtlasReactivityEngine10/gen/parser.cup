@@ -246,7 +246,7 @@ event ::=
 		if (parser.re.basicEventExists(i)) {
 			RESULT = new OptEvent(parser.re.getDevice(i),n);
 		} else {
-			parser.re.error("Sensor '" + i + " does not exist.");
+			parser.re.error("Sensor '" + i + "' does not exist.");
 		}
 	:}
 	| IDENTIFIER:i LBRACKET NUMBER:n1 COMMA NUMBER:n2 RBRACKET
@@ -255,7 +255,7 @@ event ::=
 	  	if (parser.re.basicEventExists(i)) {
 	  		RESULT = new OptEvent(parser.re.getDevice(i),n1,n2);
 	  	} else {
-	  		parser.re.error("Sensor '" + i + " does not exist.");
+	  		parser.re.error("Sensor '" + i + "' does not exist.");
 	  	}
 	:}	
 	| LANGLE window:w COMMA eval_freq:e COMMA NUMBER:n RANGLE LPAREN event:i RPAREN
