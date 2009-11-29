@@ -14,8 +14,6 @@ import java_cup.runtime.*;
 %ignorecase
 %unicode
 %cup
-%line
-%column
 %{
   StringBuffer string = new StringBuffer();
 
@@ -70,16 +68,12 @@ NewLine	  			= \n | \r | \r\n
   /* literals */
   {DecIntegerLiteral}            { return symbol(sym.NUMBER, new Integer(yytext())); }
 
-
-
-
   /* operators */
   "="                            { return symbol(sym.EQUALS); }
   "+"                            { return symbol(sym.PLUS); }
   "-"							 { return symbol(sym.MINUS); }
   "*"                            { return symbol(sym.STAR); }
-  "%"                            { return symbol(sym.PERCENT); }
-
+  
   /* delimiters */
   "("				{ return symbol(sym.LPAREN); }
   ")"				{ return symbol(sym.RPAREN); }
@@ -91,6 +85,9 @@ NewLine	  			= \n | \r | \r\n
   ","				{ return symbol(sym.COMMA); }
   "/"				{ return symbol(sym.SLASH); }
   "\\\\"			{ return symbol(sym.WHACKWHACK); }
+  
+  /* newline */
+  {NewLine}			{ return symbol(sym.NEWLINE); }
   
   /* whitespace */
   {WhiteSpace}                   { /* ignore */ }

@@ -15,6 +15,9 @@ public class Condition {
 	public boolean getValue(){
 		return value;
 	}
+	void set(boolean b) {
+		this.value = b;
+	}
 	public String toString(){
 		return (name + ":" + value);
 	}

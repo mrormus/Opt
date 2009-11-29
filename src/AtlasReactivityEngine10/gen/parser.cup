@@ -2,21 +2,34 @@
 
 package com.pervasa.reactivity;
 
+import com.pervasa.reactivity.Engine.ListType;
+import java.util.List;
+import java.util.ArrayList;
+
 /* Preliminaries */
 parser code {:
 
-  ReactiveEngine re;
+  Engine e;
+  ErrorReporter reporter;
   
-  public parser(Lexer l, ReactiveEngine re) {
+  public parser(ErrorReporter reporter, Lexer l, Engine e) {
    	this(l);
-  	this.re = re;
+   	  	// FIXME
+  	System.out.println("out1");
+  	this.e = e;
+  	this.reporter = reporter;
+  }
+  
+  private void error (String s) {
+  	System.out.println(s);
   }
   
   public void syntax_error(java_cup.runtime.Symbol current) {
     report_error(Syntax.error(current), current);
   }
+  
   public void report_error(String message, java_cup.runtime.Symbol info) {
-    re.error(message);
+    error(message);
   }
   
 :}
@@ -26,14 +39,15 @@ terminal Integer NUMBER;
 terminal String  IDENTIFIER, DATE, TIME;
 terminal     	 DEFINE, LIST, BASIC, SET, RUN, STOP, LOAD;
 terminal     	 EVENT, CONDITION, ACT, RULE;
-terminal     	 EQUALS, TRUE, FALSE, PLUS, MINUS, STAR, PERCENT, NIL;
+terminal     	 EQUALS, TRUE, FALSE, PLUS, MINUS, STAR, NIL;
 terminal     	 LPAREN, RPAREN, LBRACKET, RBRACKET, LANGLE, RANGLE;
-terminal     	 SEMI, COMMA, SLASH, WHACKWHACK; 
+terminal     	 SEMI, COMMA, SLASH, WHACKWHACK, NEWLINE; 
 
 /* Non-terminals */
-non terminal cmd, basic, list, define;
+non terminal cmds, cmd, basic, list, define;
 non terminal Boolean boolean;
-non terminal String act, acts;
+non terminal Action act;
+non terminal List<Action> acts;
 non terminal OptEvent event, events, factor;
 non terminal Window window;
 non terminal EvalFreq eval_freq;
@@ -47,6 +61,11 @@ precedence left SEMI;
 /* The following is for reference purposes only.  It is just
    the grammar, without any code to execute for each rule.
    
+cmds ::=
+	  cmd NEWLINE cmds
+	| cmd
+	;
+   
 cmd	::=
 	  basic
 	| list
@@ -55,6 +74,7 @@ cmd	::=
 	| RUN
 	| STOP
 	| LOAD IDENTIFIER:i
+	| error
 	;
 
 basic ::= 
@@ -127,40 +147,46 @@ act ::=
 
 /* The Actual Grammar */
 
+cmds ::=
+	  cmd NEWLINE cmds
+	;
+   
+
 cmd	::=
 	  basic
 	| list
 	| define
 	| SET IDENTIFIER:i EQUALS boolean:b
-		{: parser.re.setCondition(i, b); :}
+		{: parser.e.setCondition(i, b); :}
 	| RUN
-		{: parser.re.runCommand(); :}
+		{: parser.e.run(); :}
 	| STOP
-		{: parser.re.stopCommand(); :}
+		{: parser.e.stop(); :}
 	| LOAD IDENTIFIER:i
-		{: parser.re.loadFile(i); :}
+		{: parser.e.loadFile(i); :}
+	| error
 	;
 
 basic ::= 
 	  BASIC
-		{: parser.re.listBasic(); :}
+		{: parser.e.list(ListType.BASIC); :}
 	| BASIC EVENT
-		{: parser.re.listBasicEvents(); :}
+		{: parser.e.list(ListType.BASICEVENT); :}
 	| BASIC ACT
-		{: parser.re.listBasicActions(); :}
+		{: parser.e.list(ListType.BASICACTION); :}
 	;
 	
 list ::=
 	 LIST
-	 {: parser.re.listAll(); :}
+	 {: parser.e.list(ListType.ALL); :}
 	 |   LIST EVENT
-	 {: parser.re.listEvents(); :}
+	 {: parser.e.list(ListType.EVENT); :}
 	 |   LIST ACT
-	 {: parser.re.listActions(); :}
+	 {: parser.e.list(ListType.ACTION); :}
 	 |   LIST CONDITION
-	 {: parser.re.listConditions(); :}
+	 {: parser.e.list(ListType.CONDITION); :} 
 	 |   LIST RULE
-	 {: parser.re.listRules(); :}
+	 {: parser.e.list(ListType.RULE); :}
 	 ;
 	 
 define	 ::=
@@ -170,22 +196,22 @@ define	 ::=
 			// null indicates that an invalid event was specified
 			// Therefore: do nothing
 		} else {
-			parser.re.defineEvent(i, e);
+			parser.e.defineEvent(i, e);
 		}
 	:}
-	|   DEFINE ACT IDENTIFIER:i EQUALS acts:a
+	|   DEFINE ACT IDENTIFIER:i EQUALS act:a
 	{:
-		if (a.matches("")) {
+		if (a == null) {
 			// Empty string indicates that an invalid action was specified
 			// Therefore: do nothing.
 		} else {
-			parser.re.defineAction(i, a, a);
+			parser.e.defineAction(i, a);
 		}
 	:}
 	 |   DEFINE CONDITION IDENTIFIER:i EQUALS boolean:b
-	{: parser.re.defineCondition(i, b); :}
+	{: parser.e.defineCondition(i, b); :}
 	 |   DEFINE RULE IDENTIFIER:i EQUALS WHACKWHACK IDENTIFIER:e COMMA IDENTIFIER:c COMMA IDENTIFIER:a WHACKWHACK
-	{: parser.re.defineRule(i, e, c, a); :}
+	{: parser.e.defineRule(i, e, c, a); :}
 	 ;
 
 events ::= 
@@ -242,21 +268,11 @@ factor ::=
 event ::=		
 	IDENTIFIER:i LPAREN NUMBER:n RPAREN
 	{:
-		RESULT = null;
-		if (parser.re.basicEventExists(i)) {
-			RESULT = new OptEvent(parser.re.getDevice(i),n);
-		} else {
-			parser.re.error("Sensor '" + i + "' does not exist.");
-		}
+		RESULT = parser.e.createEvent(i,n);
 	:}
 	| IDENTIFIER:i LBRACKET NUMBER:n1 COMMA NUMBER:n2 RBRACKET
 	{:
-		RESULT = null;
-	  	if (parser.re.basicEventExists(i)) {
-	  		RESULT = new OptEvent(parser.re.getDevice(i),n1,n2);
-	  	} else {
-	  		parser.re.error("Sensor '" + i + "' does not exist.");
-	  	}
+		RESULT = parser.e.createEvent(i,n1,n2);
 	:}	
 	| LANGLE window:w COMMA eval_freq:e COMMA NUMBER:n RANGLE LPAREN events:i RPAREN
 	{:
@@ -269,7 +285,7 @@ event ::=
 	:}
 	| IDENTIFIER:i
 	{:
-		RESULT = parser.re.getEvent(i);
+		RESULT = parser.e.getEvent(i);
 	:}
 	;	
 	
@@ -301,46 +317,53 @@ boolean ::=
 	| FALSE
 	{: RESULT = false; :}
 	;
+	
+act ::= 
+	LPAREN acts:a RPAREN
+	{:
+		RESULT = null;
+		if (a == null) {
+			// return null
+		} else {
+			RESULT = new Action(a);
+		}
+	:}
+	| IDENTIFIER:i
+	{:
+		parser.e.getAction(i);
+	:}
+	| IDENTIFIER:i LPAREN NUMBER:n RPAREN
+	{:
+		RESULT = parser.e.createAction(i,n);
+	:}
+	;
 
 acts ::=
-	acts:s1 SEMI act:s2
+	acts:a1 SEMI act:a2
 	{:
-		RESULT = "";
-		if (s2.matches("")) {
+		RESULT = null;
+		if (a2 == null) {
+			// return null
 		} else {
-			RESULT = s1 + ";" + s2;
+			a1.add(a2);
+			RESULT = a1;
 		}
 	:}
 	|
-	act:s
+	act:a
 	{:
-		RESULT = "";
-		if (s.matches("")) {
+		RESULT = null;
+		if (a == null) {
+			// do nothing
 		} else {
-			RESULT = s;
+			List<Action> list = new ArrayList<Action>();
+			list.add(a);
+			RESULT = list;
 		}
 	:}
 	;
 	
 	
-act ::= 
-	IDENTIFIER:i
-	{:
-		RESULT = ""; 
-		String expansion = parser.re.evaluateAction(i);
-		if (expansion.matches("invalid")) {
-		} else {
-			RESULT = expansion;
-		}
-	:}
-	  |   IDENTIFIER:i LPAREN NUMBER:n RPAREN
-	 {:
-	 	RESULT = "";
-	  	String basicAction = i + "(" + n + ")";
-	  	if (parser.re.basicActionExists(i)) {
-	  		RESULT = basicAction;
-	  	} else {}
-	 :}
-	  ;
+
 
 	  

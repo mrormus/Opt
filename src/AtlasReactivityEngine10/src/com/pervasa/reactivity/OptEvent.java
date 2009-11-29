@@ -25,7 +25,7 @@ class OptEvent {
 	private long timeLastChanged = 0;
 
 	// Fields for a basic event
-	private Device sensor;
+	private Sensor sensor;
 	private int min;
 	private int max;
 
@@ -64,14 +64,14 @@ class OptEvent {
 	/* Simple Event Constructors */
 
 	// Define a simple event from a sensor with one value
-	OptEvent(Device sensor, Integer value) {
+	OptEvent(Sensor sensor, Integer value) {
 		this.sensor = sensor;
 		this.min = value;
 		this.max = value;
 	}
 
 	// Define a simple event from a sensor with a range of values
-	OptEvent(Device sensor, Integer min, Integer max) {
+	OptEvent(Sensor sensor, Integer min, Integer max) {
 		this(sensor, min);
 		this.max = max;
 	}

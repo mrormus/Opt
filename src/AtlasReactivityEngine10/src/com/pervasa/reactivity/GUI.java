@@ -18,29 +18,26 @@
 package com.pervasa.reactivity;
 
 // awt/swing GUI components
+import java.io.IOException;
+import java.io.Writer;
+
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 
-import org.osgi.framework.ServiceReference;
+interface ErrorReporter {
+	void error (String s);
+}
 
-import com.pervasa.atlas.dev.service.AtlasService;
-
-//import the temperature and pressure sensors
-//import org.sensorplatform.sensors.humidity.HumiditySensor;
-
-//import org.sensorplatform.sensors.temperature.TemperatureSensor;
+interface Console {
+	void update (String s);
+}
 
 // the AtlasClient interface is for applications that want to be able
 //   to access services provided by the Atlas platform
 // JFrame is just a base class for Java GUIs. If you're creating an
 //   Atlas application that doesn't have a GUI, you don't need to
 //   extend JFrame
-public class GUI extends JFrame {
-	/**
-	 * 
-	 */
-
-
+class GUI extends JFrame implements ErrorReporter, Console {
 
 	private static final long serialVersionUID = 1L; /*
 													 * FIXME: No idea what this
@@ -54,31 +51,31 @@ public class GUI extends JFrame {
 	// they either change based on data from sensor and actuator services
 	// or by user input
 
-	private javax.swing.JButton jButton1;
+	private javax.swing.JButton okButton;
 	private javax.swing.JLabel jLabel1;
-	private javax.swing.JLabel jLabel2;
+	private javax.swing.JLabel titleLabel;
 	private javax.swing.JScrollPane jScrollPane1;
 	private javax.swing.JScrollPane jScrollPane2;
 	private javax.swing.JTextField commandLine;
 	private javax.swing.JTextArea console;
 
-	private javax.swing.JTextArea jTextArea3;
+	private javax.swing.JTextArea lastCommand;
 	private javax.swing.JScrollPane jScrollPane3;
-	private javax.swing.JLabel jLabel3;
+	private javax.swing.JLabel instructionLabel;
 	
-	private ReactiveEngine re;
+	private Writer commandLineParser; 
 
 
 	// KitSampleApp constructor
 	// will be called by bundle's Activator class when started in Knopflerfish
-	public GUI() {
-		this.re = new ReactiveEngine(this);
+	GUI(Writer commandLineParser) {
+		this.commandLineParser = commandLineParser;
 		this.setVisible(true);
 		initGUI();
 	}
 
 	// Sets the console text area to display String s
-	public void updateConsole(String s) {
+	public void update(String s) {
 		console.setText(s);
 	}
 
@@ -86,14 +83,6 @@ public class GUI extends JFrame {
 	public void error(String s) {
 		JOptionPane.showMessageDialog(this, s);
 		System.err.println(s);
-	}
-
-	public void addDevice(ServiceReference sref, AtlasService dev) {
-		this.re.addDevice(sref, dev);
-	}
-
-	public void removeDevice(ServiceReference sref) {
-		this.re.removeDevice(sref);
 	}
 
 	// this method generates the basic GUI for the application bundle
@@ -113,11 +102,11 @@ public class GUI extends JFrame {
 		commandLine = new javax.swing.JTextField();
 		jScrollPane2 = new javax.swing.JScrollPane();
 		console = new javax.swing.JTextArea();
-		jButton1 = new javax.swing.JButton();
-		jLabel2 = new javax.swing.JLabel();
+		okButton = new javax.swing.JButton();
+		titleLabel = new javax.swing.JLabel();
 		jScrollPane3 = new javax.swing.JScrollPane();
-		jTextArea3 = new javax.swing.JTextArea();
-		jLabel3 = new javax.swing.JLabel();
+		lastCommand = new javax.swing.JTextArea();
+		instructionLabel = new javax.swing.JLabel();
 
 		setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
 		setMinimumSize(new java.awt.Dimension(800, 600));
@@ -167,39 +156,39 @@ public class GUI extends JFrame {
 		getContentPane().add(jScrollPane2);
 		jScrollPane2.setBounds(80, 210, 630, 260);
 
-		jButton1.setText("OK");
-		jButton1.addActionListener(new java.awt.event.ActionListener() {
+		okButton.setText("OK");
+		okButton.addActionListener(new java.awt.event.ActionListener() {
 			public void actionPerformed(java.awt.event.ActionEvent evt) {
 				jButton1ActionPerformed(evt);
 			}
 		});
-		getContentPane().add(jButton1);
-		jButton1.setBounds(600, 100, 110, 30);
+		getContentPane().add(okButton);
+		okButton.setBounds(600, 100, 110, 30);
 
-		jLabel2.setFont(new java.awt.Font("Trebuchet MS", 0, 24));
-		jLabel2.setText("Reactive Engine");
-		getContentPane().add(jLabel2);
-		jLabel2.setBounds(320, 20, 210, 30);
+		titleLabel.setFont(new java.awt.Font("Trebuchet MS", 0, 24));
+		titleLabel.setText("Reactive Engine");
+		getContentPane().add(titleLabel);
+		titleLabel.setBounds(320, 20, 210, 30);
 
 		jScrollPane3
 				.setVerticalScrollBarPolicy(javax.swing.ScrollPaneConstants.VERTICAL_SCROLLBAR_NEVER);
 
-		jTextArea3.setColumns(20);
-		jTextArea3.setRows(1);
-		jTextArea3.setBorder(null);
+		lastCommand.setColumns(20);
+		lastCommand.setRows(1);
+		lastCommand.setBorder(null);
 		/*
 		 * jTextArea3.addKeyListener(new java.awt.event.KeyAdapter() { public
 		 * void keyPressed(java.awt.event.KeyEvent evt) {
 		 * jTextArea3KeyPressed(evt); } });
 		 */
-		jScrollPane3.setViewportView(jTextArea3);
+		jScrollPane3.setViewportView(lastCommand);
 
 		getContentPane().add(jScrollPane3);
 		jScrollPane3.setBounds(80, 190, 630, 20);
 
-		jLabel3.setText("Enter the Command");
-		getContentPane().add(jLabel3);
-		jLabel3.setBounds(90, 100, 150, 40);
+		instructionLabel.setText("Enter the Command");
+		getContentPane().add(instructionLabel);
+		instructionLabel.setBounds(90, 100, 150, 40);
 
 		pack();
 
@@ -216,25 +205,18 @@ public class GUI extends JFrame {
 	}
 	
 	private void parseCommandLine() {
-		re.parse(commandLine.getText());
+		try {
+			commandLineParser.write(commandLine.getText() + "\n");
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 
 		System.out.println("BEFORE PARSE+" + commandLine.getText());
 
-		jTextArea3.setText(">" + commandLine.getText());
+		lastCommand.setText(">" + commandLine.getText());
 		commandLine.setText("");
 	}
-
-	// public void fill()
-	// {
-	// actionBasic.put("N12", "Move Servo [100-200]");
-	// actionBasic.put("N17", "Move Servo [100-200]");
-	// actionBasic.put("N20", "Move Servo [100-200]");
-	// actionBasic.put("N19", "Move Servo [100-200]");
-	// eventBasic.put("E12", "pressure [100-200]");
-	// eventBasic.put("E17", "temperature [100-200]");
-	// eventBasic.put("E20", "humidity [100-200]");
-	// eventBasic.put("E19", "contact [100-200]");
-	// }
 
 	private void formComponentResized(java.awt.event.ComponentEvent evt) {
 
@@ -252,7 +234,4 @@ public class GUI extends JFrame {
 
 	}
 
-	// rakesh functions end
-
-	// ameya: code end
 }

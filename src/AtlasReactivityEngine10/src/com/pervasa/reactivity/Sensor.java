@@ -1,6 +1,8 @@
 package com.pervasa.reactivity;
 
-class Device {
+import org.sensorplatform.actuators.servo.hs322.HS322Servo;
+
+class Sensor {
 	
 	static final int NULL = -999;
 	
@@ -8,7 +10,7 @@ class Device {
 	private int deviceType;
 	private int value;
 	
-	Device (String nodeID, int deviceType, int initialValue) {
+	Sensor (String nodeID, int deviceType, int initialValue) {
 		this.nodeID = nodeID;
 		this.deviceType = deviceType;
 		this.value = initialValue;
@@ -32,6 +34,19 @@ class Device {
 	
 	public String getNodeID() {
 		return nodeID;
+	}
+}
+
+class Actuator {
+	
+	private HS322Servo servo;
+	
+	Actuator (HS322Servo servo) {
+		this.servo = servo;
+	}
+
+	void actuate(int value) {
+		servo.moveServo(((value * 100) / 180) + 1);
 	}
 }
 

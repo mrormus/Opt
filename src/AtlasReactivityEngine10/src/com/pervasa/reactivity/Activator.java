@@ -37,19 +37,23 @@ import com.pervasa.atlas.dev.service.*;
 //   discovery and collaboration support.
 public class Activator implements BundleActivator, ServiceListener {
     private BundleContext context;
-    private GUI gui;
+    private Core core;
     
     public void start(BundleContext context) throws Exception {
+    	 
     	// the contextual information that OSGi knows about this bundle, which the
     	//   bundle might not know about itself (e.g., the full path and name of the
     	//   JAR file that contains the bundle).
     	this.context = context;
+    	
     	// instantiate the application
-        gui = new GUI();         
+        core = new Core();         
         System.out.println("*** Starting Kit Sample Application ***");
+        
         // register to listen for other OSGi services as they come online, change, or go offline
         context.addServiceListener(this, "(objectClass="+ AtlasService.class.getName() + ")");
         ServiceReference[] ref = context.getServiceReferences(null,"(objectClass=" + AtlasService.class.getName() + "*)");
+        
         // force all other OSGi services that are running to announce themselves
         for (int i = 0; ref != null && i < ref.length; i++) {
             serviceChanged(new ServiceEvent(ServiceEvent.REGISTERED, ref[i]));
@@ -62,7 +66,7 @@ public class Activator implements BundleActivator, ServiceListener {
     	//   allocated while the service is unavailable, but it wouldn't be
     	//   automatically cleaned by the Java garbage collector since this
     	//   Activator class would still have a reference to it.
-    	gui.dispose();
+    	core.close();
 	}
     
     public void serviceChanged(ServiceEvent event) {
@@ -78,7 +82,7 @@ public class Activator implements BundleActivator, ServiceListener {
         		//   so use OSGi and the ServiceReference to grab the actual bundle for that
         		//   service, try casting it as an AtlasService and pass it to the application
         		AtlasService newDevice = (AtlasService)context.getService(sRef);
-        		gui.addDevice(sRef, newDevice);
+        		core.addDevice(sRef, newDevice);
    	      	}
         	catch (Exception ee1) {
    	   	    	System.out.println("Exception registering device in KitSampleApp: " + ee1);
@@ -92,7 +96,7 @@ public class Activator implements BundleActivator, ServiceListener {
     	//   any service it is using, and make adjustments until/unless an equivalent service
     	//   comes back
         if (event.getType() == ServiceEvent.UNREGISTERING) {
-        	gui.removeDevice(event.getServiceReference());
+        	core.removeDevice(event.getServiceReference());
         }
     }
     
