@@ -31,7 +31,7 @@ public class Syntax {
 		case sym.SEMI: ret.append(";"); break;
 		case sym.COMMA: ret.append(","); break;
 
-		case sym.WHACKWHACK: ret.append("\\"); break;
+		case sym.WHACKWHACK: ret.append("\\\\"); break;
 		
 		case sym.TRUE: ret.append("TRUE"); break;
 		case sym.FALSE: ret.append("FALSE"); break;

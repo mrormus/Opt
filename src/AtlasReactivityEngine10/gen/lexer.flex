@@ -30,7 +30,7 @@ import java_cup.runtime.*;
 Date				= (0[1-9]|1[012]) "/" (0[1-9]|[12][0-9]|3[01]) "/" \d\d
 Time				= ([01][0-9]|2[0-3])\:([0-5][0-9])\:([0-5][0-9])
 WhiteSpace	  		= [ \t\f]
-Identifier     	  	= [:jletter:] ([:jletterdigit:]|[./\\])*
+Identifier     	  	= [:jletter:] ([:jletterdigit:]|[./])*
 DecIntegerLiteral 	= 0 | [1-9][0-9]*
 NewLine	  			= \n | \r | \r\n
 
@@ -90,7 +90,7 @@ NewLine	  			= \n | \r | \r\n
   ";"				{ return symbol(sym.SEMI); }
   ","				{ return symbol(sym.COMMA); }
   "/"				{ return symbol(sym.SLASH); }
-  "\\"				{ return symbol(sym.WHACKWHACK); }
+  "\\\\"			{ return symbol(sym.WHACKWHACK); }
   
   /* whitespace */
   {WhiteSpace}                   { /* ignore */ }
