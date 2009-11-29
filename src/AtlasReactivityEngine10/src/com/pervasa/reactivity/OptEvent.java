@@ -176,9 +176,21 @@ class OptEvent {
 	public int getSensorType() {
 		return sensor.getType();
 	}
+	
+	//public Window getWindow() {
+	//	return window;
+	//}
+	
+	public EvalFreq getEvalFreq() {
+		return evalFreq;
+	}
+	
+	public OptEvent getModifiedEvent() {
+		return modifiedEvent;
+	}
 
 	public boolean isSimple() {
-		return (left == null && right == null);
+		return (left == null && right == null && modifiedEvent == null);
 	}
 
 	// Return the truth value of this event
@@ -337,6 +349,10 @@ class Window {
 			break;
 		}
 		return ret;
+	}
+	
+	public int returnType () {
+		return type;
 	}
 
 	/*

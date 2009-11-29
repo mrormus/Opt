@@ -437,6 +437,30 @@ class Engine {
 			}
 
 		}
+		
+		void pull(int sType) {
+
+			switch (sType) {
+
+			case DeviceType.CONTACT:
+				sensorContact.getContactReading(new Logic());
+				System.out.println("Subscribed to Contact Data");
+				break;
+			case DeviceType.PRESSURE:
+				sensorPressure.getPressureReading(new Logic());
+				System.out.println("Subscribed to Pressure Data");
+				break;
+			case DeviceType.HUMIDITY:
+				sensorHumid.getSensorReading(new Logic());
+				System.out.println("Subscribed to Humidity Data");
+				break;
+			case DeviceType.TEMP:
+				sensorTemp.getSensorReading(new Logic());
+				System.out.println("Subscribed to Temperature Data");
+				break;
+			}
+
+		}
 
 		public void unsubscribe() {
 			if (sensorContact != null) {
@@ -465,28 +489,65 @@ class Engine {
 		void add(OptEvent e) {
 			// TODO: Create a timer for the TFM event, store it, and start it
 			// with the PullData class.
+					
+			int evalFreq = e.getEvalFreq().getDuration();
+				
+			Timer t = new Timer();
+			timers.put(e, t);
+			t.scheduleAtFixedRate(new PullData(e), 0, evalFreq*1000);
+
 		}
 
 		/*
 		 * Called when the time window of a TFM event closes.
 		 */
 		void remove(OptEvent e) {
-			// TODO: Invoke cancel() on the timer for the TFM event, remove it
-			// from the map.
+			Timer t = timers.get(e);
+			t.cancel();
+			timers.remove(e);
 		}
 
 		private class PullData extends TimerTask {
 
-			// TODO: fields
+			OptEvent e;
 
-			PullData() {
-				// TODO: constructor
+			PullData(OptEvent e) {
+				
+				this.e = e; 
 			}
 
 			@Override
 			public void run() {
-				// TODO: pull the appropriate data
+				
+				OptEvent me = e.getModifiedEvent();
+				
+				System.out.println("Pull data at:" + System.currentTimeMillis());
+				
+				//findSensors(me);
 			}
+			
+			void findSensors(OptEvent e) {
+
+				if (e.left == null && e.right == null) {
+					// We've reached a simple event, find it's sensor type and
+					// pull the sensor data
+					int sType = e.getSensorType();
+					state.pull(sType);
+					
+				}
+
+				else {
+					if (e.left != null) {
+						findSensors(e.left);
+					}
+					if (e.right != null) {
+						findSensors(e.right);
+					}
+				}
+
+			}
+			
+			
 		}
 
 	}
@@ -539,8 +600,11 @@ class Engine {
 					} else {
 
 						// Not a simple atomic event
-
-						findSimpleEvents(e);
+						// Find all the sensors that the event uses
+						
+						if (r.getEvent().getModifiedEvent() == null) {
+							findSensors(e);
+						}
 
 					}
 
@@ -551,7 +615,7 @@ class Engine {
 		}
 
 		// Had to create a new function so that I could recurse :)
-		void findSimpleEvents(OptEvent compositeEvent) {
+		void findSensors(OptEvent compositeEvent) {
 
 			if (compositeEvent.left == null && compositeEvent.right == null) {
 				// We've reached a simple event, find it's sensor type and
@@ -562,10 +626,10 @@ class Engine {
 
 			else {
 				if (compositeEvent.left != null) {
-					findSimpleEvents(compositeEvent.left);
+					findSensors(compositeEvent.left);
 				}
 				if (compositeEvent.right != null) {
-					findSimpleEvents(compositeEvent.right);
+					findSensors(compositeEvent.right);
 				}
 			}
 
