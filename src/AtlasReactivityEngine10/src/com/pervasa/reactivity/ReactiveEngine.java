@@ -45,7 +45,7 @@ public class ReactiveEngine implements AtlasClient {
 
 	// Maps
 	Map<String, HS322Servo> servoMap = new HashMap<String, HS322Servo>();
-	Map<String, Device> basicEvents = new HashMap<String, Device>();
+	Map<String, Device> sensorMap = new HashMap<String, Device>();
 	Map<String, String> basicActions = new HashMap<String, String>();
 	Map<String, OptEvent> eventList = new ConcurrentHashMap<String, OptEvent>();
 	Map<String, Condition> runtimeConditions = new ConcurrentHashMap<String, Condition>();
@@ -79,7 +79,7 @@ public class ReactiveEngine implements AtlasClient {
 
 			// Put sensor in a HashMap of BASIC EVENTS
 			String nodeId = sref.getProperty("Node-Id").toString();
-			basicEvents.put(nodeId, new Device(nodeId,DeviceType.PRESSURE,Device.NULL));
+			sensorMap.put(nodeId, new Device(nodeId,DeviceType.PRESSURE,Device.NULL));
 
 		}
 
@@ -106,7 +106,7 @@ public class ReactiveEngine implements AtlasClient {
 
 			// Put sensor in HashMap of BASIC EVENTS
 			String nodeId = sref.getProperty("Node-Id").toString();
-			basicEvents.put(nodeId, new Device(nodeId,DeviceType.CONTACT,Device.NULL));
+			sensorMap.put(nodeId, new Device(nodeId,DeviceType.CONTACT,Device.NULL));
 
 		}
 
@@ -119,7 +119,7 @@ public class ReactiveEngine implements AtlasClient {
 
 			// Put sensor in HashMap of BASIC EVENTS
 			String nodeId = sref.getProperty("Node-Id").toString();
-			basicEvents.put(nodeId, new Device(nodeId, DeviceType.TEMP, Device.NULL));
+			sensorMap.put(nodeId, new Device(nodeId, DeviceType.TEMP, Device.NULL));
 
 		}
 
@@ -131,7 +131,7 @@ public class ReactiveEngine implements AtlasClient {
 
 			// Put sensor in HashMap of BASIC EVENTS
 			String nodeId = sref.getProperty("Node-Id").toString();
-			basicEvents.put(nodeId, new Device(nodeId, DeviceType.HUMIDITY, Device.NULL));
+			sensorMap.put(nodeId, new Device(nodeId, DeviceType.HUMIDITY, Device.NULL));
 
 		}
 
@@ -148,6 +148,13 @@ public class ReactiveEngine implements AtlasClient {
 	public void removeDevice(ServiceReference sref) {
 
 		if (sref == refPressure) {
+			
+			// set the reading of sensor to NULL (we could always remove it from 
+			// the map but since events may have been defined so to ensure those 
+			// events evaluate to false, we set the reading to null)
+			String nodeId = refPressure.getProperty("Node-Id").toString();
+			sensorMap.remove(nodeId);
+			
 			refPressure = null;
 			sensorPressure = null;
 
@@ -160,17 +167,29 @@ public class ReactiveEngine implements AtlasClient {
 		}
 
 		else if (sref == refContact) {
+			
+			String nodeId = refContact.getProperty("Node-Id").toString();
+			sensorMap.remove(nodeId);
+			
 			refContact = null;
 			sensorContact = null;
 		}
 
 		else if (sref == refTemp) {
+			
+			String nodeId = refTemp.getProperty("Node-Id").toString();
+			sensorMap.remove(nodeId);
+			
 			refTemp = null;
 			sensorTemp = null;
 
 		}
 
 		else if (sref == refHumid) {
+			
+			String nodeId = refHumid.getProperty("Node-Id").toString();
+			sensorMap.remove(nodeId);
+			
 			refHumid = null;
 			sensorTemp = null;
 
@@ -204,7 +223,7 @@ public class ReactiveEngine implements AtlasClient {
 		
 		String nodeId = props.getProperty("Node-Id");
 		
-		Device d = basicEvents.get(nodeId);
+		Device d = sensorMap.get(nodeId);
 		
 		d.update(Integer.parseInt(data));
 
@@ -285,7 +304,7 @@ public class ReactiveEngine implements AtlasClient {
 	private StringBuffer appendBasicEvents(StringBuffer s) {
 		s.append("\n----BASIC EVENTS----\n");
 
-		for (Device d : basicEvents.values()) {
+		for (Device d : sensorMap.values()) {
 			s.append(d + "\n");
 
 		}
@@ -450,8 +469,8 @@ public class ReactiveEngine implements AtlasClient {
 	}
 	
 	Device getDevice(String nodeID) {
-		if (basicEvents.containsKey(nodeID)) {
-			return basicEvents.get(nodeID);
+		if (sensorMap.containsKey(nodeID)) {
+			return sensorMap.get(nodeID);
 		} else {
 			error("Device '" + nodeID + "' does not exist.");
 			return null;
@@ -538,7 +557,7 @@ public class ReactiveEngine implements AtlasClient {
 	}
 
 	public boolean basicEventExists(String s) {
-		return basicEvents.containsKey(s);
+		return sensorMap.containsKey(s);
 	}
 
 	public boolean atomicEventExists(String s) {
