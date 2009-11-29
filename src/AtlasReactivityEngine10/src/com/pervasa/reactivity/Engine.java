@@ -27,7 +27,7 @@ import com.pervasa.atlas.dev.service.AtlasService;
 
 class Engine {
 
-	private ErrorReporter reporter;
+	private Errorz errorz;
 	private Console console;
 	private Writer commandLineWriter;
 
@@ -35,8 +35,8 @@ class Engine {
 	Scheduler scheduler = new Scheduler();
 	State state = new State();
 
-	Engine(ErrorReporter reporter, Console console, Writer commandLineWriter) {
-		this.reporter = reporter;
+	Engine(Errorz errorz, Console console, Writer commandLineWriter) {
+		this.errorz = errorz;
 		this.console = console;
 		this.commandLineWriter = commandLineWriter;
 		//FIXME
@@ -44,7 +44,8 @@ class Engine {
 	}
 
 	private void error(String s) {
-		reporter.error(s);
+		errorz.editString(s);
+		new Thread(errorz).start();
 	}
 
 	private void updateConsole(String s) {

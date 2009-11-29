@@ -23,21 +23,38 @@ import java.io.Writer;
 
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
+import javax.swing.SwingUtilities;
 
 interface ErrorReporter {
-	void error (String s);
+	void error(String s);
 }
 
 interface Console {
-	void update (String s);
+	void update(String s);
+}
+
+class Errorz implements Runnable {
+	private JFrame f;
+	private String s;
+	public Errorz(JFrame f) {
+		this.f = f;
+	}
+	public void editString(String s) {
+		this.s = s;
+	}
+	public void run() {
+		SwingUtilities.invokeLater(new Runnable() {
+			public void run() {JOptionPane.showMessageDialog(f, s);}
+		});
+	}
 }
 
 // the AtlasClient interface is for applications that want to be able
-//   to access services provided by the Atlas platform
+// to access services provided by the Atlas platform
 // JFrame is just a base class for Java GUIs. If you're creating an
-//   Atlas application that doesn't have a GUI, you don't need to
-//   extend JFrame
-class GUI extends JFrame implements ErrorReporter, Console {
+// Atlas application that doesn't have a GUI, you don't need to
+// extend JFrame
+class GUI extends JFrame implements Console {
 
 	private static final long serialVersionUID = 1L; /*
 													 * FIXME: No idea what this
@@ -62,9 +79,8 @@ class GUI extends JFrame implements ErrorReporter, Console {
 	private javax.swing.JTextArea lastCommand;
 	private javax.swing.JScrollPane jScrollPane3;
 	private javax.swing.JLabel instructionLabel;
-	
-	private Writer commandLineParser; 
 
+	private Writer commandLineParser;
 
 	// KitSampleApp constructor
 	// will be called by bundle's Activator class when started in Knopflerfish
@@ -77,12 +93,6 @@ class GUI extends JFrame implements ErrorReporter, Console {
 	// Sets the console text area to display String s
 	public void update(String s) {
 		console.setText(s);
-	}
-
-	// pops up an error box
-	public void error(String s) {
-		JOptionPane.showMessageDialog(this, s);
-		System.err.println(s);
 	}
 
 	// this method generates the basic GUI for the application bundle
@@ -203,7 +213,7 @@ class GUI extends JFrame implements ErrorReporter, Console {
 	private void jButton1ActionPerformed(java.awt.event.ActionEvent evt) {
 		parseCommandLine();
 	}
-	
+
 	private void parseCommandLine() {
 		try {
 			commandLineParser.write(commandLine.getText() + "\n");

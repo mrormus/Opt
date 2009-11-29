@@ -24,8 +24,9 @@ class Core {
 			PipedWriter pout = new PipedWriter(pin);
 
 			g = new GUI(pout);
-			e = new Engine(g, g, pout);
-			i = new Interpreter(g, e, pin);
+			Errorz errorz = new Errorz(g); 
+			e = new Engine(errorz, g, pout);
+			i = new Interpreter(errorz, e, pin);
 
 			interpreterThread = new Thread(i);
 			interpreterThread.start();

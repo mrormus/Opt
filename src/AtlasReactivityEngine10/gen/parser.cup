@@ -10,19 +10,20 @@ import java.util.ArrayList;
 parser code {:
 
   Engine e;
-  ErrorReporter reporter;
+  Errorz r;
   
-  public parser(ErrorReporter reporter, Lexer l, Engine e) {
+  public parser(Errorz reporter, Lexer l, Engine e) {
    	this(l);
    	  	// FIXME
   	System.out.println("out1");
   	this.e = e;
-  	this.reporter = reporter;
+  	this.r = reporter;
   }
   
-  private void error (String s) {
-  	System.out.println(s);
-  }
+	private void error(String s) {
+		r.editString(s);
+		new Thread(r).start();
+	}
   
   public void syntax_error(java_cup.runtime.Symbol current) {
     report_error(Syntax.error(current), current);
@@ -57,98 +58,10 @@ precedence left PLUS;
 precedence left STAR;
 precedence left SEMI;
 
-/* The simplified grammar */
-/* The following is for reference purposes only.  It is just
-   the grammar, without any code to execute for each rule.
-   
-cmds ::=
-	  cmd NEWLINE cmds
-	| cmd
-	;
-   
-cmd	::=
-	  basic
-	| list
-	| define
-	| SET IDENTIFIER:i EQUALS boolean:b
-	| RUN
-	| STOP
-	| LOAD IDENTIFIER:i
-	| error
-	;
-
-basic ::= 
-	  BASIC
-	| BASIC EVENT
-	| BASIC ACT
-	;
-	
-list ::=
-	  LIST
-	| LIST EVENT
-	| LIST ACT
-	| LIST CONDITION
-	| LIST RULE
-	;
-	 
-define ::=
-	  DEFINE EVENT IDENTIFIER:i EQUALS events:e
-	| DEFINE ACT IDENTIFIER:i EQUALS acts:a
-	| DEFINE CONDITION IDENTIFIER:i EQUALS boolean:b
-	| DEFINE RULE IDENTIFIER:i EQUALS IDENTIFIER:e COMMA IDENTIFIER:c COMMA IDENTIFIER:a
-	;
-
-events ::= 
-	  events:e1 PLUS factor:e2
-	| factor:e
-	;
-	
-
-factor ::=
-	  factor:e1 STAR NUMBER:n STAR event:e2
-	| factor:e1 STAR event:e2
-	| event:e
-	;
-		
-event ::=		
-	  IDENTIFIER:i LPAREN NUMBER:n RPAREN
-	| IDENTIFIER:i LBRACKET NUMBER:n1 COMMA NUMBER:n2 RBRACKET
-	| LANGLE window COMMA eval_freq COMMA NUMBER:n RANGLE LPAREN IDENTIFIER:i RPAREN
-	| IDENTIFIER:i
-	;	
-	
-window ::=
-	  NIL
-	| DATE:d1 SLASH TIME:t1 MINUS DATE:d2 SLASH TIME:t2
-	| TIME:t1 MINUS TIME:t2
-	;
-
-eval_freq ::=
-	  NUMBER:n
-	;
-	
-boolean ::=
-	  TRUE
-	| FALSE
-	;
-
-acts ::=
-	  acts:s1 SEMI act:s2
-	| act:s
-	;
-
-	
-act ::= 
-	  IDENTIFIER:i
-	| IDENTIFIER:i LPAREN NUMBER:n RPAREN
-	;
-
-*/
-
 /* The Actual Grammar */
 
 cmds ::=
-	  cmd NEWLINE cmds
+	cmd NEWLINE cmds
 	;
    
 
