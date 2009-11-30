@@ -71,7 +71,7 @@ class Engine {
 		ACTUATOR, SENSOR, EVENT, CONDITION, ACTION, RULE
 	};
 
-	private class State {
+	class State {
 
 		private boolean run = false;
 
@@ -463,24 +463,21 @@ class Engine {
 		 * Called when the time window of a TFM event opens.
 		 */
 		void add(TFMEvent e) {
-			// TODO: Create a timer for the TFM event, store it, and start it
-			// with the PullData class.
 
 			try {
 				int evalFreq = e.getEvalFreq().getDuration();
-				int wType = e.getWindow().returnType();
-
+				Window w = e.getWindow();
+				int wType = w.returnType();
+				Date now = new Date();
+				
 				Timer t1 = new Timer(); // Timer for executing event when window
 				// is open
-				Timer t2 = new Timer(); // Timer to initiate t1 when window is
-				// open, close
-				// when window is closed
-
-				/* Dummy - need to be actually implemented */
-				Date absEnd = new Date();
-				Date relEnd = new Date();
-				Date relStart = new Date();
-
+				
+				Date absStart =	w.getAbsStart();
+				Date absEnd = w.getAbsEnd();
+				Date relEnd = w.getRelEnd();
+				Date relStart = w.getRelStart();
+				
 				switch (wType) {
 
 				case Window.ABSOLUTE:
@@ -489,28 +486,33 @@ class Engine {
 						t1.scheduleAtFixedRate(new PullData(e), 0,
 								evalFreq * 1000);
 						// cancel t1 at absEnd
-						t2.schedule(new PullData(t1, false), absEnd);
+						new Timer().schedule(new PullData(t1, false), absEnd);
 						/* FIXME: absEnd should be absEnd of window */
 						// store in case it ever needs to be reinstiated
 						executionTimers.put(t1, e);
 					} else {
 						// Out of absolute window
 						// Check if currentTime is before startTime
+						if (now.before(absStart)) {
 						// Then it will open sometime in future, otherwise
 						// it will never open
+							
 						// Schedule it to start using t2 if it will open
 						// sometime in future
+							new Timer().schedule(new PullData(t1, true, evalFreq),absStart);
+							new Timer().schedule(new PullData(t1,false),absEnd);
+						}
 					}
 				case Window.RELATIVE:
 					if (e.getWindow().withinWindow()) {
 						t1.scheduleAtFixedRate(new PullData(e), 0,
 								evalFreq * 1000);
-						t2.schedule(new PullData(t1, false), relEnd);
+						new Timer().schedule(new PullData(t1, false), relEnd);
 						/* FIXME: relEnd should be relEnd of window */
 						executionTimers.put(t1, e);
 					} else {
 						executionTimers.put(t1, e);
-						t2.schedule(new PullData(t1, true, evalFreq), relStart);
+						new Timer().schedule(new PullData(t1, true, evalFreq), relStart);
 					}
 				case Window.INFINITE:
 					// Window never closes, no need for t2
@@ -607,9 +609,11 @@ class Engine {
 
 	}
 
-	private class Logic implements AtlasClient {
+	class Logic implements AtlasClient {
 
 		public void ReceivedData(String data, Properties props) {
+			
+			System.out.println("Received data.");
 
 			// Update sensor reading value
 			String nodeId = props.getProperty("Node-Id");

@@ -27,6 +27,17 @@ class SimpleAction implements Action {
 		this.name = s;
 	}
 	
+	public String getName() {
+		String ret = "";
+		if (name == null) {
+			ret = toString();
+		} else {
+			ret = name;
+		}
+		return ret;
+	}
+			
+	
 	public String toString() {
 		return name + ": " + actuator;
 	}

@@ -18,7 +18,13 @@ public class Rule {
 	}
 	
 	public String getName(String s) {
-		return this.name;
+		String ret = "";
+		if (name == null) {
+			ret = toString();
+		} else {
+			ret = this.name;
+		}
+		return ret;
 	}
 
 	public String toString() {

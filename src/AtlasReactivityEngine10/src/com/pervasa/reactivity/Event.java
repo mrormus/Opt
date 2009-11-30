@@ -15,7 +15,7 @@ interface Event {
 	public String toString();
 
 	public boolean isSimple();
-	
+
 	public boolean isTFM();
 
 	public boolean evaluate();
@@ -53,7 +53,7 @@ class EventBase {
 	boolean isSimple() {
 		return false;
 	}
-	
+
 	boolean isTFM() {
 		return false;
 	}
@@ -93,6 +93,7 @@ class SimpleEvent extends EventBase implements Event {
 
 	// Define a simple event from a sensor with one value
 	SimpleEvent(Sensor sensor, Integer value) {
+		this.status = new EventStatus();
 		this.sensor = sensor;
 		this.min = value;
 		this.max = value;
@@ -109,7 +110,7 @@ class SimpleEvent extends EventBase implements Event {
 	public void setName(String name) {
 		super.setName(name);
 	}
-	
+
 	public boolean isTFM() {
 		return super.isTFM();
 	}
@@ -118,7 +119,6 @@ class SimpleEvent extends EventBase implements Event {
 	public boolean isSimple() {
 		return true;
 	}
-
 
 	public String toString() {
 		String ret = "";
@@ -191,7 +191,7 @@ class CompositeEvent extends EventBase implements Event {
 	public boolean isSimple() {
 		return super.isSimple();
 	}
-	
+
 	public boolean isTFM() {
 		return super.isTFM();
 	}
@@ -297,7 +297,7 @@ class TFMEvent extends EventBase implements Event {
 	public boolean isSimple() {
 		return super.isSimple();
 	}
-	
+
 	@Override
 	public boolean isTFM() {
 		return true;
@@ -340,7 +340,7 @@ class TFMEvent extends EventBase implements Event {
 	public Event getModifiedEvent() {
 		return modifiedEvent;
 	}
-	
+
 	public Window getWindow() {
 		return window;
 	}
@@ -396,7 +396,7 @@ class Window {
 		SimpleDateFormat dateFmt = new SimpleDateFormat("MM/dd/yy");
 		Date d1 = dateFmt.parse(date1);
 		Date d2 = dateFmt.parse(date2);
-		
+
 		SimpleDateFormat dateFmt2 = new SimpleDateFormat("HH:mm:ss");
 		Date t1 = dateFmt2.parse(time1);
 		Date t2 = dateFmt2.parse(time2);
@@ -418,7 +418,7 @@ class Window {
 		} catch (ParseException e) {
 			System.out.println("Failed to parse times");
 		}
-		
+
 		this.type = RELATIVE;
 	}
 
@@ -435,7 +435,8 @@ class Window {
 			break;
 		case RELATIVE:
 			// Compare the current HH:mm:ss to the window
-			today.set(today.get(Calendar.YEAR), today.get(Calendar.MONTH), today.get(Calendar.DATE), 0, 0, 0);
+			today.set(today.get(Calendar.YEAR), today.get(Calendar.MONTH),
+					today.get(Calendar.DATE), 0, 0, 0);
 			Date thisMorning = today.getTime();
 			Date start = new Date(thisMorning.getTime() + relStart.getTime());
 			Date end = new Date(thisMorning.getTime() + relEnd.getTime());
@@ -497,6 +498,22 @@ class Window {
 			break;
 		}
 		return ret;
+	}
+
+	public Date getAbsStart() {
+		return absStart;
+	}
+
+	public Date getAbsEnd() {
+		return absEnd;
+	}
+
+	public Date getRelStart() {
+		return relStart;
+	}
+
+	public Date getRelEnd() {
+		return relEnd;
 	}
 
 }
