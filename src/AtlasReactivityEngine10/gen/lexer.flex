@@ -32,67 +32,73 @@ Identifier     	  	= [:jletter:] ([:jletterdigit:]|[./])*
 DecIntegerLiteral 	= 0 | [1-9][0-9]*
 NewLine	  			= \n | \r | \r\n
 
+InputCharacter 		= [^\r\n]
+LineTerminator 		= \r|\n|\r\n
+Comment 			= "//" {InputCharacter}* {NewLine}?
+
+
 %state STRING
 
 %%
 
-
 <YYINITIAL> {
 /* commands */
-"DEFINE"           	{ return symbol(sym.DEFINE); }
-"LIST"           	{ return symbol(sym.LIST); }
-"BASIC"             { return symbol(sym.BASIC); }
-"SET"               { return symbol(sym.SET); }
-"RUN"               { return symbol(sym.RUN); }
-"STOP"              { return symbol(sym.STOP); }
-"LOAD"              { return symbol(sym.LOAD); }
+"DEFINE"           		{ return symbol(sym.DEFINE); }
+"LIST"           		{ return symbol(sym.LIST); }
+"BASIC"             	{ return symbol(sym.BASIC); }
+"SET"               	{ return symbol(sym.SET); }
+"RUN"               	{ return symbol(sym.RUN); }
+"STOP"              	{ return symbol(sym.STOP); }
+"LOAD"              	{ return symbol(sym.LOAD); }
 
 /* subcommand */
-"EVENT"             { return symbol(sym.EVENT); }
-"CONDITION"         { return symbol(sym.CONDITION); }
-"ACTION"            { return symbol(sym.ACT); }
-"RULE"              { return symbol(sym.RULE); }
+"EVENT"             	{ return symbol(sym.EVENT); }
+"CONDITION"         	{ return symbol(sym.CONDITION); }
+"ACTION"            	{ return symbol(sym.ACT); }
+"RULE"              	{ return symbol(sym.RULE); }
 
 /* conditions */
-"TRUE"				{ return symbol(sym.TRUE); }
-"FALSE"				{ return symbol(sym.FALSE); }
+"TRUE"					{ return symbol(sym.TRUE); }
+"FALSE"					{ return symbol(sym.FALSE); }
 
 /* TFM */
-"NIL"				{ return symbol(sym.NIL); }
-{Date}				{ return symbol(sym.DATE, new String(yytext())); }
-{Time}				{ return symbol(sym.TIME, new String(yytext())); }
+"NIL"					{ return symbol(sym.NIL); }
+{Date}					{ return symbol(sym.DATE, new String(yytext())); }
+{Time}					{ return symbol(sym.TIME, new String(yytext())); }
  
   /* identifiers */ 
-  {Identifier}                   { return symbol(sym.IDENTIFIER, new String(yytext())); }
+  {Identifier}          { return symbol(sym.IDENTIFIER, new String(yytext())); }
  
   /* literals */
-  {DecIntegerLiteral}            { return symbol(sym.NUMBER, new Integer(yytext())); }
+  {DecIntegerLiteral}   { return symbol(sym.NUMBER, new Integer(yytext())); }
 
   /* operators */
-  "="                            { return symbol(sym.EQUALS); }
-  "+"                            { return symbol(sym.PLUS); }
-  "-"							 { return symbol(sym.MINUS); }
-  "*"                            { return symbol(sym.STAR); }
+  "="                   { return symbol(sym.EQUALS); }
+  "+"                   { return symbol(sym.PLUS); }
+  "-"					{ return symbol(sym.MINUS); }
+  "*"                 	{ return symbol(sym.STAR); }
   
   /* delimiters */
-  "("				{ return symbol(sym.LPAREN); }
-  ")"				{ return symbol(sym.RPAREN); }
-  "["				{ return symbol(sym.LBRACKET); }
-  "]"				{ return symbol(sym.RBRACKET); }
-  "<"				{ return symbol(sym.LANGLE); }
-  ">"				{ return symbol(sym.RANGLE); }
-  ";"				{ return symbol(sym.SEMI); }
-  ","				{ return symbol(sym.COMMA); }
-  "/"				{ return symbol(sym.SLASH); }
-  "\\\\"			{ return symbol(sym.WHACKWHACK); }
+  "("					{ return symbol(sym.LPAREN); }
+  ")"					{ return symbol(sym.RPAREN); }
+  "["					{ return symbol(sym.LBRACKET); }
+  "]"					{ return symbol(sym.RBRACKET); }
+  "<"					{ return symbol(sym.LANGLE); }
+  ">"					{ return symbol(sym.RANGLE); }
+  ";"					{ return symbol(sym.SEMI); }
+  ","					{ return symbol(sym.COMMA); }
+  "/"					{ return symbol(sym.SLASH); }
   
   /* newline */
-  {NewLine}			{ return symbol(sym.NEWLINE); }
+  {NewLine}				{ return symbol(sym.NEWLINE); }
+  
+  /* comments */
+  {Comment}				{ return symbol(sym.NEWLINE); }
   
   /* whitespace */
-  {WhiteSpace}                   { /* ignore */ }
+  {WhiteSpace}          { /* ignore */ }
 }
 
  /* error fallback */
-.|\n                             { throw new Error("Illegal character <"+
+.|\n                    { throw new Error("Illegal character <"+
                                                     yytext()+">"); }
