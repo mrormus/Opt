@@ -342,6 +342,10 @@ class TFMEvent extends EventBase implements Event {
 	public Event getModifiedEvent() {
 		return modifiedEvent;
 	}
+	
+	public Window getWindow() {
+		return window;
+	}
 
 	public void update() {
 		boolean ret = false;

@@ -1,6 +1,7 @@
 package com.pervasa.reactivity;
 
 import java.io.File;
+
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.Writer;
@@ -14,6 +15,7 @@ import java.util.Scanner;
 import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.Date;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -449,11 +451,13 @@ class Engine {
 
 	private class Scheduler {
 
-		private Map<TFMEvent, Timer> timers;
+		private Map<Timer, TFMEvent> executionTimers;
+		//private Map<TFMEvent, Timer> managementTimers;
 		
 		/* Initialization */
 		Scheduler() {
-			timers = new HashMap<TFMEvent, Timer>();
+			executionTimers = new HashMap<Timer, TFMEvent>();
+			//managementTimers = new HashMap<TFMEvent, Timer>();
 		}
 				
 		/* Main Loop */
@@ -482,10 +486,54 @@ class Engine {
 
 			try {
 				int evalFreq = e.getEvalFreq().getDuration();
+				int wType = e.getWindow().returnType();
+				
+				Timer t1 = new Timer(); // Timer for executing event when window is open
+				Timer t2 = new Timer(); // Timer to initiate t1 when window is open, close
+										// when window is closed
+				
+				/*Dummy - need to be actually implemented*/
+				Date absEnd = new Date();
+				Date relEnd = new Date();
+				Date relStart = new Date();
+				
+				switch (wType) {
+				
+				case Window.ABSOLUTE:
+					if (e.getWindow().withinWindow()) {
+						// Pull data every evalFreq seconds
+						t1.scheduleAtFixedRate(new PullData(e), 0, evalFreq * 1000);
+						// cancel t1 at absEnd 
+						t2.schedule(new PullData(t1, false), absEnd); 
+						/* FIXME: absEnd should be absEnd of window */
+						//store in case it ever needs to be reinstiated
+						executionTimers.put(t1, e);
+					}
+					else {
+						// Out of absolute window
+						// Check if currentTime is before startTime
+						// Then it will open sometime in future, otherwise
+						// it will never open
+						// Schedule it to start using t2 if it will open sometime in future
+					}
+				case Window.RELATIVE:
+					if (e.getWindow().withinWindow()) {
+						t1.scheduleAtFixedRate(new PullData(e), 0, evalFreq * 1000);
+						t2.schedule(new PullData(t1, false), relEnd);
+						/* FIXME: relEnd should be relEnd of window */
+						executionTimers.put(t1, e);
+					}
+					else {
+						executionTimers.put(t1, e);
+						t2.schedule(new PullData(t1, true, evalFreq), relStart);
+					}
+				case Window.INFINITE:
+					// Window never closes, no need for t2
+					t1.scheduleAtFixedRate(new PullData(e), 0, evalFreq * 1000);
+					executionTimers.put(t1, e);
+				}
 
-				Timer t = new Timer();
-				timers.put(e, t);
-				t.scheduleAtFixedRate(new PullData(e), 0, evalFreq * 1000);
+				
 			} catch (Exception exn) {
 				// EvalFreq is infinite, so even though the window is open, we
 				// won't schedule this event, because it will never evaluate to
@@ -498,29 +546,65 @@ class Engine {
 		 * Called when the time window of a TFM event closes.
 		 */
 		void remove(TFMEvent e) {
-			Timer t = timers.get(e);
-			t.cancel();
-			timers.remove(e);
+			//Timer t = timers.get(e);
+			//t.cancel();
+			//timers.remove(e);
 		}
 
 		private class PullData extends TimerTask {
 
 			TFMEvent e;
+			Timer t;
+			boolean activityFlag;
+			int evalFreq;
 
 			PullData(TFMEvent e) {
 
 				this.e = e;
 			}
+			
+			PullData(Timer t, boolean activityFlag) {
+				
+				this.t = t;
+				this.activityFlag = activityFlag;
+			}
+			
+			PullData(Timer t, boolean activityFlag, int evalFreq) {
+				
+				this.t = t;
+				this.activityFlag = activityFlag;
+				this.evalFreq = evalFreq;
+			}
 
 			@Override
 			public void run() {
+				
+				if (e != null) {
+					
+					//Active window, pull data.
 
-				Event me = e.getModifiedEvent();
+					Event me = e.getModifiedEvent();
 
-				System.out
+					System.out
 						.println("Pull data at:" + System.currentTimeMillis());
 
-				// findSensors(me);
+					// findSensors(me);
+				}
+				
+				if (t != null) {
+					
+					// Management timer, check if t is to be rescheduled or canceled
+					
+					if (activityFlag) {
+						t.scheduleAtFixedRate(new PullData(executionTimers.get(t)), 0, evalFreq*1000);
+					}
+					
+					else {
+						// Ending an absolute event
+						t.cancel();
+					}
+					
+				}
 			}
 
 			void findSensors(Event e) {
