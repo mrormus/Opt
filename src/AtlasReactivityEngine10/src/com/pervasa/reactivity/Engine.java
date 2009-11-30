@@ -138,10 +138,10 @@ class Engine {
 
 		private String getSummary(String title, Map map) {
 			StringBuilder buf = new StringBuilder();
-			buf.append(title + "\n");
+			buf.append("---" + title + "---" + "\n");
 			for (Entry<String, Object> e : (Set<Entry>) map.entrySet()) {
 				buf.append(e.getKey().toString() + " = "
-						+ e.getValue().toString() + "\n");
+						+ e.getValue().toString() + "\n\n");
 			}
 			return buf.toString();
 		}
@@ -448,7 +448,29 @@ class Engine {
 
 	private class Scheduler {
 
-		private Map<TFMEvent, Timer> timers = new HashMap<TFMEvent, Timer>();
+		private Map<TFMEvent, Timer> timers;
+		
+		/* Initialization */
+		Scheduler() {
+			timers = new HashMap<TFMEvent, Timer>();
+		}
+				
+		/* Main Loop */
+		public void run() {
+			while (true) {
+				//TODO: Take care of business.
+				
+				// Let another thread have a chance at the wheel.
+				Thread.yield();
+				
+				// Try to pause for a second
+				try {
+					Thread.sleep(1000);
+				} catch (InterruptedException e) {
+					// Ignore, loopback
+				}
+			}
+		}
 
 		/*
 		 * Called when the time window of a TFM event opens.
@@ -457,11 +479,17 @@ class Engine {
 			// TODO: Create a timer for the TFM event, store it, and start it
 			// with the PullData class.
 
-			int evalFreq = e.getEvalFreq().getDuration();
+			try {
+				int evalFreq = e.getEvalFreq().getDuration();
 
-			Timer t = new Timer();
-			timers.put(e, t);
-			t.scheduleAtFixedRate(new PullData(e), 0, evalFreq * 1000);
+				Timer t = new Timer();
+				timers.put(e, t);
+				t.scheduleAtFixedRate(new PullData(e), 0, evalFreq * 1000);
+			} catch (Exception exn) {
+				// EvalFreq is infinite, so even though the window is open, we
+				// won't schedule this event, because it will never evaluate to
+				// true
+			}
 
 		}
 
@@ -640,9 +668,11 @@ class Engine {
 			if (!state.eventExists(name)) {
 				e.setName(name);
 				state.add(name, e);
-				// FIXME Debug output
-				System.err.println(e);
-
+				
+				if (e.isTFM()) {
+					// Cast is safe, since we just checked that event is TFM
+					scheduler.add((TFMEvent)e);
+				}
 			} else {
 				error("Event '" + name + "' already exists");
 			}
@@ -667,6 +697,7 @@ class Engine {
 	void defineAction(String name, Action a) {
 		if (!state.run) {
 			if (!state.actionExists(name)) {
+				a.setName(name);
 				state.add(name, a);
 			} else {
 				error("Action '" + name + "' already exists");

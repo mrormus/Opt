@@ -14,8 +14,6 @@ parser code {:
   
   public parser(Errorz reporter, Lexer l, Engine e) {
    	this(l);
-   	  	// FIXME
-  	System.out.println("out1");
   	this.e = e;
   	this.r = reporter;
   }
@@ -40,7 +38,7 @@ terminal Integer NUMBER;
 terminal String  IDENTIFIER, DATE, TIME;
 terminal     	 DEFINE, LIST, BASIC, SET, RUN, STOP, LOAD;
 terminal     	 EVENT, CONDITION, ACT, RULE;
-terminal     	 EQUALS, TRUE, FALSE, PLUS, MINUS, STAR, NIL;
+terminal     	 EQUALS, TRUE, FALSE, PLUS, MINUS, STAR, PERCENT, NIL, INF;
 terminal     	 LPAREN, RPAREN, LBRACKET, RBRACKET, LANGLE, RANGLE;
 terminal     	 SEMI, COMMA, SLASH, WHACKWHACK, NEWLINE; 
 
@@ -52,6 +50,7 @@ non terminal List<Action> acts;
 non terminal Event event, events, factor;
 non terminal Window window;
 non terminal EvalFreq eval_freq;
+non terminal Integer report_freq; 
 
 /* Precedences */
 precedence left PLUS;
@@ -187,7 +186,7 @@ event ::=
 	{:
 		RESULT = parser.e.createEvent(i,n1,n2);
 	:}	
-	| LANGLE window:w COMMA eval_freq:e COMMA NUMBER:n RANGLE LPAREN events:i RPAREN
+	| LANGLE window:w COMMA eval_freq:e COMMA report_freq:n RANGLE LPAREN events:i RPAREN
 	{:
 		RESULT = null;
 		if (i == null) {
@@ -221,8 +220,23 @@ eval_freq ::=
 	NUMBER:n
 	{:
 		RESULT = new EvalFreq(n);
+	:}
+	| INF
+	{:
+		RESULT = new EvalFreq();
 	:}  
 	;
+	
+report_freq ::=
+	NUMBER:n
+	{:
+		RESULT = n;
+	:}
+	| NUMBER:n PERCENT
+	{:
+		RESULT = n;
+	:}
+	;	
 
 boolean ::=
 	  TRUE
@@ -258,8 +272,10 @@ acts ::=
 		if (a2 == null) {
 			// return null
 		} else {
-			a1.add(a2);
-			RESULT = a1;
+			if (a1 != null) {
+				a1.add(a2);
+				RESULT = a1;
+			}
 		}
 	:}
 	|

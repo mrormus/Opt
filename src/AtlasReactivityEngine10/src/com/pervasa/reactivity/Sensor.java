@@ -40,9 +40,14 @@ class Sensor {
 class Actuator {
 	
 	private HS322Servo servo;
+	private String nodeID;
 	
 	Actuator (HS322Servo servo) {
 		this.servo = servo;
+	}
+	
+	public String toString() {
+		return "servo_" + nodeID; 
 	}
 
 	void actuate(int value) {

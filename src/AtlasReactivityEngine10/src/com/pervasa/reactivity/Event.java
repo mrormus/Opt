@@ -17,6 +17,8 @@ interface Event {
 	public String toString();
 
 	public boolean isSimple();
+	
+	public boolean isTFM();
 
 	public boolean evaluate();
 
@@ -51,6 +53,10 @@ class EventBase {
 	}
 
 	boolean isSimple() {
+		return false;
+	}
+	
+	boolean isTFM() {
 		return false;
 	}
 
@@ -105,11 +111,16 @@ class SimpleEvent extends EventBase implements Event {
 	public void setName(String name) {
 		super.setName(name);
 	}
+	
+	public boolean isTFM() {
+		return super.isTFM();
+	}
 
 	@Override
 	public boolean isSimple() {
 		return true;
 	}
+
 
 	public String toString() {
 		String ret = "";
@@ -181,6 +192,10 @@ class CompositeEvent extends EventBase implements Event {
 
 	public boolean isSimple() {
 		return super.isSimple();
+	}
+	
+	public boolean isTFM() {
+		return super.isTFM();
 	}
 
 	public void setName(String name) {
@@ -284,6 +299,11 @@ class TFMEvent extends EventBase implements Event {
 	public boolean isSimple() {
 		return super.isSimple();
 	}
+	
+	@Override
+	public boolean isTFM() {
+		return true;
+	}
 
 	public void setName(String name) {
 		super.setName(name);
@@ -302,10 +322,14 @@ class TFMEvent extends EventBase implements Event {
 		String ret = "";
 
 		if (modifiedEvent != null) {
-			// TFM event
-			ret = "<" + window.getInterval() + ", "
-					+ Integer.toString(evalFreq.getDuration()) + ", "
-					+ reportFreq + "> (" + modifiedEvent.getName() + ")";
+			String ef = "Inf";
+			try {
+				ef = Integer.toString(evalFreq.getDuration());
+			} catch (Exception e) {
+				// Ignore
+			}
+			ret = "<" + window.getInterval() + ", " + ef + ", " + reportFreq
+					+ "> (" + modifiedEvent.getName() + ")";
 		}
 
 		return ret;
@@ -469,25 +493,36 @@ class Window {
 
 class EvalFreq {
 
+	enum Type {
+		INF, NUM
+	}
+
 	private int secs;
+	private Type type;
+
+	public EvalFreq() {
+		this.type = Type.INF;
+	}
 
 	public EvalFreq(Integer n) {
 		this.secs = n;
+		this.type = Type.INF;
 	}
 
 	/*
 	 * Return the number of seconds in between each evaluation
 	 */
-	int getDuration() {
+	int getDuration() throws Exception {
+		if (type == Type.INF) {
+			throw new Exception();
+		}
 		return secs;
 	}
 
 }
 
-
-
 class ReportFreq {
-	
+
 	enum Type {
 		ZERO, PERCENT, COUNT
 	}
@@ -517,8 +552,12 @@ class ReportFreq {
 	ReportFreq(Integer n, EvalFreq ef, Window w) {
 		this(Type.PERCENT);
 		this.percent = n;
-		this.threshold = (n / 100)
-				* (w.durationInMillis() / (ef.getDuration() * 1000));
+		try {
+			this.threshold = (n / 100)
+					* (w.durationInMillis() / (ef.getDuration() * 1000));
+		} catch (Exception e) {
+			this.threshold = 0;
+		}
 	}
 
 	/* Methods */

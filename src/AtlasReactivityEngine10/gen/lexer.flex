@@ -63,6 +63,7 @@ Comment 			= "//" {InputCharacter}* {NewLine}?
 
 /* TFM */
 "NIL"					{ return symbol(sym.NIL); }
+"INF"					{ return symbol(sym.INF); }
 {Date}					{ return symbol(sym.DATE, new String(yytext())); }
 {Time}					{ return symbol(sym.TIME, new String(yytext())); }
  
@@ -77,6 +78,7 @@ Comment 			= "//" {InputCharacter}* {NewLine}?
   "+"                   { return symbol(sym.PLUS); }
   "-"					{ return symbol(sym.MINUS); }
   "*"                 	{ return symbol(sym.STAR); }
+  "%"                 	{ return symbol(sym.PERCENT); }
   
   /* delimiters */
   "("					{ return symbol(sym.LPAREN); }
