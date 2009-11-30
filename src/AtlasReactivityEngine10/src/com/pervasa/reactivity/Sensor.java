@@ -42,12 +42,13 @@ class Actuator {
 	private HS322Servo servo;
 	private String nodeID;
 	
-	Actuator (HS322Servo servo) {
+	Actuator (String nodeID, HS322Servo servo) {
+		this.nodeID = nodeID;
 		this.servo = servo;
 	}
 	
 	public String toString() {
-		return "servo_" + nodeID; 
+		return nodeID + "; MoveServo; [0, 180]";
 	}
 
 	void actuate(int value) {

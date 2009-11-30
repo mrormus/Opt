@@ -22,32 +22,8 @@ import java.io.IOException;
 import java.io.Writer;
 
 import javax.swing.JFrame;
-import javax.swing.JOptionPane;
-import javax.swing.SwingUtilities;
 
-interface ErrorReporter {
-	void error(String s);
-}
 
-interface Console {
-	void update(String s);
-}
-
-class Errorz implements Runnable {
-	private JFrame f;
-	private String s;
-	public Errorz(JFrame f) {
-		this.f = f;
-	}
-	public void editString(String s) {
-		this.s = s;
-	}
-	public void run() {
-		SwingUtilities.invokeLater(new Runnable() {
-			public void run() {JOptionPane.showMessageDialog(f, s);}
-		});
-	}
-}
 
 // the AtlasClient interface is for applications that want to be able
 // to access services provided by the Atlas platform
@@ -217,6 +193,7 @@ class GUI extends JFrame implements Console {
 	private void parseCommandLine() {
 		try {
 			commandLineParser.write(commandLine.getText() + "\n");
+			Thread.yield();
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();

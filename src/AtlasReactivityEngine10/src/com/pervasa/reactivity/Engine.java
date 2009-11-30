@@ -141,8 +141,9 @@ class Engine {
 			buf.append("---" + title + "---" + "\n");
 			for (Entry<String, Object> e : (Set<Entry>) map.entrySet()) {
 				buf.append(e.getKey().toString() + " = "
-						+ e.getValue().toString() + "\n\n");
+						+ e.getValue().toString() + "\n");
 			}
+			buf.append("\n");
 			return buf.toString();
 		}
 
@@ -217,7 +218,7 @@ class Engine {
 
 				// Put actuator in a HashMap of BASIC ACTIONS
 				String nodeId = sref.getProperty("Node-Id").toString();
-				actuators.put(nodeId, new Actuator(actuatorServo));
+				actuators.put(nodeId, new Actuator(nodeId, actuatorServo));
 
 				// Put actuator in a ServoMap
 				servoMap.put(nodeId, actuatorServo);
@@ -775,6 +776,7 @@ class Engine {
 			while (sc.hasNextLine()) {
 				try {
 					commandLineWriter.write(sc.nextLine());
+					Thread.yield();
 				} catch (IOException e) {
 					// FIXME: Not sure what to do here
 					System.err
@@ -786,15 +788,6 @@ class Engine {
 			error("File '" + System.getProperty("user.dir")
 					+ System.getProperty("file.separator") + path
 					+ "' not found.");
-		}
-	}
-
-	Action createAction(String nodeID, Integer value) {
-		if (state.actuatorExists(nodeID)) {
-			return new Action(state.getActuator(nodeID), value);
-		} else {
-			error("Actuator '" + nodeID + "' does not exist.");
-			return null;
 		}
 	}
 
@@ -826,6 +819,19 @@ class Engine {
 	Event createEvent(String nodeID, Integer value) {
 		return createEvent(nodeID, value, value);
 	}
+	
+	/*
+	 * Construct a SimpleAction given an actuator's nodeID and a value to which to actuate
+	 */
+	Action createAction(String nodeID, Integer value) {
+		if (state.actuatorExists(nodeID)) {
+			return new SimpleAction(state.getActuator(nodeID), value);
+		} else {
+			error("Actuator '" + nodeID + "' does not exist.");
+			return null;
+		}
+	}
+
 
 	/* Core Methods */
 	/*

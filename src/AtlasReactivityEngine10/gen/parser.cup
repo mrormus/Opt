@@ -3,7 +3,6 @@
 package com.pervasa.reactivity;
 
 import com.pervasa.reactivity.Engine.ListType;
-import java.util.List;
 import java.util.ArrayList;
 
 /* Preliminaries */
@@ -46,7 +45,7 @@ terminal     	 SEMI, COMMA, SLASH, WHACKWHACK, NEWLINE;
 non terminal cmds, cmd, basic, list, define;
 non terminal Boolean boolean;
 non terminal Action act;
-non terminal List<Action> acts;
+non terminal ArrayList<Action> acts;
 non terminal Event event, events, factor;
 non terminal Window window;
 non terminal EvalFreq eval_freq;
@@ -76,6 +75,8 @@ cmd	::=
 		{: parser.e.stop(); :}
 	| LOAD IDENTIFIER:i
 		{: parser.e.loadFile(i); :}
+	| /* no input */
+		{: /* Do nothing! */ :}
 	| error
 	;
 
@@ -252,7 +253,7 @@ act ::=
 		if (a == null) {
 			// return null
 		} else {
-			RESULT = new Action(a);
+			RESULT = new CompositeAction(a);
 		}
 	:}
 	| IDENTIFIER:i
@@ -285,7 +286,7 @@ acts ::=
 		if (a == null) {
 			// do nothing
 		} else {
-			List<Action> list = new ArrayList<Action>();
+			ArrayList<Action> list = new ArrayList<Action>();
 			list.add(a);
 			RESULT = list;
 		}
