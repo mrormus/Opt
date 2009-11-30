@@ -1,12 +1,10 @@
 package com.pervasa.reactivity;
 
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.Calendar;
+import java.util.Date;
 import java.util.Set;
-
-import org.joda.time.DateTime;
-import org.joda.time.LocalTime;
-import org.joda.time.format.DateTimeFormat;
-import org.joda.time.format.DateTimeFormatter;
 
 interface Event {
 
@@ -372,11 +370,11 @@ class TFMEvent extends EventBase implements Event {
 
 class Window {
 
-	private DateTime absStart;
-	private DateTime absEnd;
+	private Date absStart;
+	private Date absEnd;
 
-	private LocalTime relStart;
-	private LocalTime relEnd;
+	private Date relStart;
+	private Date relEnd;
 
 	static final int INFINITE = 0;
 	static final int ABSOLUTE = 1;
@@ -395,16 +393,16 @@ class Window {
 	public Window(String date1, String time1, String date2, String time2)
 			throws Exception {
 
-		DateTimeFormatter dateFmt = DateTimeFormat.forPattern("MM/dd/yy");
-		DateTime d1 = dateFmt.parseDateTime(date1);
-		DateTime d2 = dateFmt.parseDateTime(date2);
+		SimpleDateFormat dateFmt = new SimpleDateFormat("MM/dd/yy");
+		Date d1 = dateFmt.parse(date1);
+		Date d2 = dateFmt.parse(date2);
+		
+		SimpleDateFormat dateFmt2 = new SimpleDateFormat("HH:mm:ss");
+		Date t1 = dateFmt2.parse(time1);
+		Date t2 = dateFmt2.parse(time2);
 
-		DateTimeFormatter timeFmt = DateTimeFormat.forPattern("HH:mm:ss");
-		LocalTime t1 = new LocalTime(timeFmt.parseDateTime(time1));
-		LocalTime t2 = new LocalTime(timeFmt.parseDateTime(time2));
-
-		absStart = d1.plus(t1.getMillisOfDay());
-		absEnd = d2.plus(t2.getMillisOfDay());
+		absStart = new Date(d1.getTime() + t1.getTime());
+		absEnd = new Date(d2.getTime() + t2.getTime());
 
 		this.type = ABSOLUTE;
 
@@ -413,10 +411,14 @@ class Window {
 	// Constructor for a relative window
 	public Window(String time1, String time2) {
 
-		DateTimeFormatter timeFmt = DateTimeFormat.forPattern("HH:mm:ss");
-		relStart = new LocalTime(timeFmt.parseDateTime(time1));
-		relEnd = new LocalTime(timeFmt.parseDateTime(time2));
-
+		SimpleDateFormat dateFmt = new SimpleDateFormat("HH:mm:ss");
+		try {
+			relStart = dateFmt.parse(time1);
+			relEnd = dateFmt.parse(time2);
+		} catch (ParseException e) {
+			System.out.println("Failed to parse times");
+		}
+		
 		this.type = RELATIVE;
 	}
 
@@ -424,6 +426,8 @@ class Window {
 
 	public boolean withinWindow() {
 		boolean ret = false;
+		Date now = Calendar.getInstance().getTime();
+		Calendar today = Calendar.getInstance();
 		switch (type) {
 		case INFINITE:
 			// Always within window, return true
@@ -431,13 +435,15 @@ class Window {
 			break;
 		case RELATIVE:
 			// Compare the current HH:mm:ss to the window
-			// (null is defined as the current instant in time in Joda-time)
-			ret = relStart.isBefore(null) && relEnd.isAfter(null);
+			today.set(today.get(Calendar.YEAR), today.get(Calendar.MONTH), today.get(Calendar.DATE), 0, 0, 0);
+			Date thisMorning = today.getTime();
+			Date start = new Date(thisMorning.getTime() + relStart.getTime());
+			Date end = new Date(thisMorning.getTime() + relEnd.getTime());
+			ret = start.before(now) && now.before(end);
 			break;
 		case ABSOLUTE:
 			// Compare the current time to this window's date/times
-			// (null is defined as the current instant in time in Joda-time)
-			ret = absStart.isBefore(null) && absEnd.isAfter(null);
+			ret = absStart.before(now) && now.before(absEnd);
 			break;
 		}
 		return ret;
@@ -460,10 +466,10 @@ class Window {
 			ret = Long.MAX_VALUE;
 			break;
 		case RELATIVE:
-			ret = relEnd.millisOfDay().get() - relStart.millisOfDay().get();
+			ret = relEnd.getTime() - relStart.getTime();
 			break;
 		case ABSOLUTE:
-			ret = absEnd.getMillis() - absEnd.getMillis();
+			ret = absEnd.getTime() - absEnd.getTime();
 			break;
 		}
 

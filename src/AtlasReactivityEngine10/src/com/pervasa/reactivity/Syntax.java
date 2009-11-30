@@ -25,13 +25,10 @@ public class Syntax {
 		
 		case sym.LPAREN: ret.append("("); break;
 		case sym.RPAREN: ret.append(")"); break;
-		case sym.LBRACKET: ret.append("["); break;
-		case sym.RBRACKET: ret.append("]"); break;
 		case sym.EQUALS: ret.append("="); break;
 		case sym.SEMI: ret.append(";"); break;
 		case sym.COMMA: ret.append(","); break;
 
-		case sym.WHACKWHACK: ret.append("\\\\"); break;
 		
 		case sym.TRUE: ret.append("TRUE"); break;
 		case sym.FALSE: ret.append("FALSE"); break;

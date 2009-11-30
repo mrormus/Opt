@@ -12,13 +12,23 @@ public class Condition {
 		this.name = name;
 		this.value = value;
 	}
+	public Condition(boolean b) {
+		this.value = b;
+	}
 	public boolean getValue(){
 		return value;
+	}
+	public void setName(String s) {
+		this.name = s;
 	}
 	void set(boolean b) {
 		this.value = b;
 	}
 	public String toString(){
+		if (name != null) {
 		return (name + ":" + value);
+		} else {
+			return "" + value;
+		}
 	}
 }

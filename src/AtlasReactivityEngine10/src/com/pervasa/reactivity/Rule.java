@@ -7,11 +7,18 @@ public class Rule {
 	private Condition condition;
 	
 	
-	public Rule (String name, Event event, Condition condition, Action action){
-		this.name = name;
+	public Rule (Event event, Condition condition, Action action){
 		this.event = event;
 		this.action = action;
 		this.condition = condition;	
+	}
+	
+	public void setName(String s) {
+		this.name = s;
+	}
+	
+	public String getName(String s) {
+		return this.name;
 	}
 
 	public String toString() {

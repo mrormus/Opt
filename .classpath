@@ -11,11 +11,6 @@
 	<classpathentry kind="lib" path="src/AtlasReactivityEngine10/lib/ant.jar"/>
 	<classpathentry kind="lib" path="src/AtlasReactivityEngine10/lib/java-cup-11a.jar"/>
 	<classpathentry kind="lib" path="src/AtlasReactivityEngine10/lib/JFlex.jar"/>
-	<classpathentry kind="lib" path="src/AtlasReactivityEngine10/lib/joda-time-1.6.jar">
-		<attributes>
-			<attribute name="javadoc_location" value="file:/H:/patrick/Code/joda-time-1.6/"/>
-		</attributes>
-	</classpathentry>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
 	<classpathentry kind="output" path="src/AtlasReactivityEngine10/classes"/>
 </classpath>

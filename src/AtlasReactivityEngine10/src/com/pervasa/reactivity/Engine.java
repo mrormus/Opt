@@ -4,6 +4,7 @@ import java.io.File;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.StringReader;
 import java.io.Writer;
 import java.util.Collection;
 import java.util.HashMap;
@@ -31,29 +32,22 @@ import com.pervasa.atlas.dev.service.AtlasService;
 
 class Engine {
 
-	private Errorz errorz;
-	private Console console;
-	private Writer commandLineWriter;
+	private GUI gui;
 
 	Logic logic = new Logic();
 	Scheduler scheduler = new Scheduler();
 	State state = new State();
 
-	Engine(Errorz errorz, Console console, Writer commandLineWriter) {
-		this.errorz = errorz;
-		this.console = console;
-		this.commandLineWriter = commandLineWriter;
-		// FIXME
-		System.err.println("Engine init");
+	void init(GUI gui) {
+		this.gui = gui;
 	}
 
-	private void error(String s) {
-		errorz.editString(s);
-		new Thread(errorz).start();
+	public void error(String s) {
+		System.err.println(s);
 	}
 
 	private void updateConsole(String s) {
-		console.update(s);
+		gui.update(s);
 	}
 
 	// this is basically a callback method called by any Atlas service
@@ -159,6 +153,10 @@ class Engine {
 
 		Condition getCondition(String name) {
 			return runtimeConditions.get(name);
+		}
+
+		Rule getRule(String name) {
+			return rules.get(name);
 		}
 
 		public boolean actuatorExists(String nodeID) {
@@ -452,29 +450,13 @@ class Engine {
 	private class Scheduler {
 
 		private Map<Timer, TFMEvent> executionTimers;
-		//private Map<TFMEvent, Timer> managementTimers;
-		
+
+		// private Map<TFMEvent, Timer> managementTimers;
+
 		/* Initialization */
 		Scheduler() {
 			executionTimers = new HashMap<Timer, TFMEvent>();
-			//managementTimers = new HashMap<TFMEvent, Timer>();
-		}
-				
-		/* Main Loop */
-		public void run() {
-			while (true) {
-				//TODO: Take care of business.
-				
-				// Let another thread have a chance at the wheel.
-				Thread.yield();
-				
-				// Try to pause for a second
-				try {
-					Thread.sleep(1000);
-				} catch (InterruptedException e) {
-					// Ignore, loopback
-				}
-			}
+			// managementTimers = new HashMap<TFMEvent, Timer>();
 		}
 
 		/*
@@ -487,43 +469,46 @@ class Engine {
 			try {
 				int evalFreq = e.getEvalFreq().getDuration();
 				int wType = e.getWindow().returnType();
-				
-				Timer t1 = new Timer(); // Timer for executing event when window is open
-				Timer t2 = new Timer(); // Timer to initiate t1 when window is open, close
-										// when window is closed
-				
-				/*Dummy - need to be actually implemented*/
+
+				Timer t1 = new Timer(); // Timer for executing event when window
+				// is open
+				Timer t2 = new Timer(); // Timer to initiate t1 when window is
+				// open, close
+				// when window is closed
+
+				/* Dummy - need to be actually implemented */
 				Date absEnd = new Date();
 				Date relEnd = new Date();
 				Date relStart = new Date();
-				
+
 				switch (wType) {
-				
+
 				case Window.ABSOLUTE:
 					if (e.getWindow().withinWindow()) {
 						// Pull data every evalFreq seconds
-						t1.scheduleAtFixedRate(new PullData(e), 0, evalFreq * 1000);
-						// cancel t1 at absEnd 
-						t2.schedule(new PullData(t1, false), absEnd); 
+						t1.scheduleAtFixedRate(new PullData(e), 0,
+								evalFreq * 1000);
+						// cancel t1 at absEnd
+						t2.schedule(new PullData(t1, false), absEnd);
 						/* FIXME: absEnd should be absEnd of window */
-						//store in case it ever needs to be reinstiated
+						// store in case it ever needs to be reinstiated
 						executionTimers.put(t1, e);
-					}
-					else {
+					} else {
 						// Out of absolute window
 						// Check if currentTime is before startTime
 						// Then it will open sometime in future, otherwise
 						// it will never open
-						// Schedule it to start using t2 if it will open sometime in future
+						// Schedule it to start using t2 if it will open
+						// sometime in future
 					}
 				case Window.RELATIVE:
 					if (e.getWindow().withinWindow()) {
-						t1.scheduleAtFixedRate(new PullData(e), 0, evalFreq * 1000);
+						t1.scheduleAtFixedRate(new PullData(e), 0,
+								evalFreq * 1000);
 						t2.schedule(new PullData(t1, false), relEnd);
 						/* FIXME: relEnd should be relEnd of window */
 						executionTimers.put(t1, e);
-					}
-					else {
+					} else {
 						executionTimers.put(t1, e);
 						t2.schedule(new PullData(t1, true, evalFreq), relStart);
 					}
@@ -533,7 +518,6 @@ class Engine {
 					executionTimers.put(t1, e);
 				}
 
-				
 			} catch (Exception exn) {
 				// EvalFreq is infinite, so even though the window is open, we
 				// won't schedule this event, because it will never evaluate to
@@ -546,9 +530,9 @@ class Engine {
 		 * Called when the time window of a TFM event closes.
 		 */
 		void remove(TFMEvent e) {
-			//Timer t = timers.get(e);
-			//t.cancel();
-			//timers.remove(e);
+			// Timer t = timers.get(e);
+			// t.cancel();
+			// timers.remove(e);
 		}
 
 		private class PullData extends TimerTask {
@@ -562,15 +546,15 @@ class Engine {
 
 				this.e = e;
 			}
-			
+
 			PullData(Timer t, boolean activityFlag) {
-				
+
 				this.t = t;
 				this.activityFlag = activityFlag;
 			}
-			
+
 			PullData(Timer t, boolean activityFlag, int evalFreq) {
-				
+
 				this.t = t;
 				this.activityFlag = activityFlag;
 				this.evalFreq = evalFreq;
@@ -578,32 +562,34 @@ class Engine {
 
 			@Override
 			public void run() {
-				
+
 				if (e != null) {
-					
-					//Active window, pull data.
+
+					// Active window, pull data.
 
 					Event me = e.getModifiedEvent();
 
-					System.out
-						.println("Pull data at:" + System.currentTimeMillis());
+					System.out.println("Pull data at:"
+							+ System.currentTimeMillis());
 
 					// findSensors(me);
 				}
-				
+
 				if (t != null) {
-					
-					// Management timer, check if t is to be rescheduled or canceled
-					
+
+					// Management timer, check if t is to be rescheduled or
+					// canceled
+
 					if (activityFlag) {
-						t.scheduleAtFixedRate(new PullData(executionTimers.get(t)), 0, evalFreq*1000);
+						t.scheduleAtFixedRate(new PullData(executionTimers
+								.get(t)), 0, evalFreq * 1000);
 					}
-					
+
 					else {
 						// Ending an absolute event
 						t.cancel();
 					}
-					
+
 				}
 			}
 
@@ -753,10 +739,10 @@ class Engine {
 			if (!state.eventExists(name)) {
 				e.setName(name);
 				state.add(name, e);
-				
+
 				if (e.isTFM()) {
 					// Cast is safe, since we just checked that event is TFM
-					scheduler.add((TFMEvent)e);
+					scheduler.add((TFMEvent) e);
 				}
 			} else {
 				error("Event '" + name + "' already exists");
@@ -766,10 +752,10 @@ class Engine {
 		}
 	}
 
-	void defineCondition(String name, boolean b) {
+	void defineCondition(String name, Condition c) {
 		if (!state.isRunning()) {
 			if (!state.conditionExists(name)) {
-				Condition c = new Condition(name, b);
+				c.setName(name);
 				state.add(name, c);
 			} else {
 				error("Condition '" + name + "' already exists");
@@ -792,26 +778,13 @@ class Engine {
 		}
 	}
 
-	void defineRule(String name, String e, String c, String a) {
+	void defineRule(String name, Rule r) {
 		if (!state.run) {
-			if (state.eventExists(e)) {
-				if (state.conditionExists(c)) {
-					if (state.actionExists(a)) {
-						if (!state.ruleExists(name)) {
-							Rule r = new Rule(name, state.getEvent(e), state
-									.getCondition(c), state.getAction(a));
-							state.add(name, r);
-						} else {
-							error("Rule '" + name + "' already exists");
-						}
-					} else {
-						error("Action '" + a + "' does not exist");
-					}
-				} else {
-					error("Condition '" + c + "' does not exist");
-				}
+			if (!state.ruleExists(name)) {
+				r.setName(name);
+				state.add(name, r);
 			} else {
-				error("Event '" + e + "' does not exist");
+				error("Rule '" + name + "' already exists");
 			}
 		} else {
 			error("Cannot DEFINE while running.  STOP first.");
@@ -858,20 +831,23 @@ class Engine {
 		try {
 			sc = new Scanner(new File(path));
 			while (sc.hasNextLine()) {
-				try {
-					commandLineWriter.write(sc.nextLine());
-					Thread.yield();
-				} catch (IOException e) {
-					// FIXME: Not sure what to do here
-					System.err
-							.println("IOException while parsing input from file.");
-					e.printStackTrace();
-				}
+				parse(sc.nextLine());
 			}
 		} catch (FileNotFoundException e) {
 			error("File '" + System.getProperty("user.dir")
 					+ System.getProperty("file.separator") + path
 					+ "' not found.");
+		}
+	}
+
+	void parse(String cmd) {
+		System.out.println("Parsing: " + cmd);
+		Lexer l = new Lexer(new StringReader(cmd));
+		parser p = new parser(l, this);
+		try {
+			p.parse();
+		} catch (Exception e) {
+			System.err.println("Syntax error: " + cmd);
 		}
 	}
 
@@ -881,6 +857,10 @@ class Engine {
 
 	Event getEvent(String nodeID) {
 		return state.getEvent(nodeID);
+	}
+	
+	Rule getRule(String nodeID) {
+		return state.getRule(nodeID);
 	}
 
 	/*
@@ -903,9 +883,17 @@ class Engine {
 	Event createEvent(String nodeID, Integer value) {
 		return createEvent(nodeID, value, value);
 	}
-	
+
 	/*
-	 * Construct a SimpleAction given an actuator's nodeID and a value to which to actuate
+	 * Construct a new Condition
+	 */
+	Condition createCondition(boolean b) {
+		return new Condition(b);
+	}
+
+	/*
+	 * Construct a SimpleAction given an actuator's nodeID and a value to which
+	 * to actuate
 	 */
 	Action createAction(String nodeID, Integer value) {
 		if (state.actuatorExists(nodeID)) {
@@ -916,6 +904,22 @@ class Engine {
 		}
 	}
 
+	Rule createRule(Event e, Condition c, Action a) {
+		if (e != null) {
+			if (c != null) {
+				if (a != null) {
+					return new Rule(e, c, a);
+				} else {
+					error("Action '" + a + "' does not exist");
+				}
+			} else {
+				error("Condition '" + c + "' does not exist");
+			}
+		} else {
+			error("Event '" + e + "' does not exist");
+		}
+		return null;
+	}
 
 	/* Core Methods */
 	/*
@@ -930,4 +934,7 @@ class Engine {
 		state.removeDevice(sref);
 	}
 
+	public Condition getCondition(String i) {
+		return state.getCondition(i);
+	}
 }

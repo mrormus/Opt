@@ -9,17 +9,14 @@ import java.util.ArrayList;
 parser code {:
 
   Engine e;
-  Errorz r;
   
-  public parser(Errorz reporter, Lexer l, Engine e) {
+  public parser(Lexer l, Engine e) {
    	this(l);
   	this.e = e;
-  	this.r = reporter;
   }
   
 	private void error(String s) {
-		r.editString(s);
-		new Thread(r).start();
+		System.out.println(s);
 	}
   
   public void syntax_error(java_cup.runtime.Symbol current) {
@@ -34,22 +31,24 @@ parser code {:
 
 /* Terminals (tokens returned by the scanner) */
 terminal Integer NUMBER;
-terminal String  IDENTIFIER, DATE, TIME;
+terminal String  IDENTIFIER, TIME, DATE;
 terminal     	 DEFINE, LIST, BASIC, SET, RUN, STOP, LOAD;
 terminal     	 EVENT, CONDITION, ACT, RULE;
 terminal     	 EQUALS, TRUE, FALSE, PLUS, MINUS, STAR, PERCENT, NIL, INF;
-terminal     	 LPAREN, RPAREN, LBRACKET, RBRACKET, LANGLE, RANGLE;
-terminal     	 SEMI, COMMA, SLASH, WHACKWHACK, NEWLINE; 
+terminal     	 LPAREN, RPAREN, LANGLE, RANGLE;
+terminal     	 SEMI, COMMA, SLASH, COLON;
 
 /* Non-terminals */
 non terminal cmds, cmd, basic, list, define;
 non terminal Boolean boolean;
+non terminal Condition condition;
 non terminal Action act;
 non terminal ArrayList<Action> acts;
 non terminal Event event, events, factor;
+non terminal Rule rule;
 non terminal Window window;
 non terminal EvalFreq eval_freq;
-non terminal Integer report_freq; 
+non terminal Integer number, report_freq; 
 
 /* Precedences */
 precedence left PLUS;
@@ -57,11 +56,6 @@ precedence left STAR;
 precedence left SEMI;
 
 /* The Actual Grammar */
-
-cmds ::=
-	cmd NEWLINE cmds
-	;
-   
 
 cmd	::=
 	  basic
@@ -112,7 +106,7 @@ define	 ::=
 			parser.e.defineEvent(i, e);
 		}
 	:}
-	|   DEFINE ACT IDENTIFIER:i EQUALS act:a
+	| DEFINE ACT IDENTIFIER:i EQUALS act:a
 	{:
 		if (a == null) {
 			// Empty string indicates that an invalid action was specified
@@ -121,11 +115,22 @@ define	 ::=
 			parser.e.defineAction(i, a);
 		}
 	:}
-	 |   DEFINE CONDITION IDENTIFIER:i EQUALS boolean:b
-	{: parser.e.defineCondition(i, b); :}
-	 |   DEFINE RULE IDENTIFIER:i EQUALS IDENTIFIER:e COMMA IDENTIFIER:c COMMA IDENTIFIER:a
-	{: parser.e.defineRule(i, e, c, a); :}
+	 |   DEFINE CONDITION IDENTIFIER:i EQUALS condition:c
+	{: parser.e.defineCondition(i, c); :}
+	 |   DEFINE RULE IDENTIFIER:i EQUALS rule:r
+	{: parser.e.defineRule(i, r); :}
 	 ;
+	 
+rule ::=
+	events:e COMMA condition:c COMMA act:a
+	{:
+		RESULT = parser.e.createRule(e, c, a);
+	:}
+	| IDENTIFIER:i
+	{:
+		RESULT = parser.e.getRule(i);
+	:}
+	;
 
 events ::= 
 	events:e1 PLUS factor:e2
@@ -179,11 +184,11 @@ factor ::=
 	;
 		
 event ::=		
-	IDENTIFIER:i LPAREN NUMBER:n RPAREN
+	IDENTIFIER:i LPAREN number:n RPAREN
 	{:
 		RESULT = parser.e.createEvent(i,n);
 	:}
-	| IDENTIFIER:i LBRACKET NUMBER:n1 COMMA NUMBER:n2 RBRACKET
+	| IDENTIFIER:i LPAREN number:n1 COMMA number:n2 RPAREN
 	{:
 		RESULT = parser.e.createEvent(i,n1,n2);
 	:}	
@@ -215,7 +220,7 @@ window ::=
 	{:
 		RESULT = new Window(t1,t2);
 	:}
-	;
+	;	
 
 eval_freq ::=
 	NUMBER:n
@@ -237,7 +242,18 @@ report_freq ::=
 	{:
 		RESULT = n;
 	:}
-	;	
+	;
+	
+condition ::=
+	IDENTIFIER:i
+	{:
+		RESULT = parser.e.getCondition(i);
+	:}
+	| boolean:b
+	{:
+		RESULT = parser.e.createCondition(b);
+	:}
+	;
 
 boolean ::=
 	  TRUE
@@ -258,7 +274,7 @@ act ::=
 	:}
 	| IDENTIFIER:i
 	{:
-		parser.e.getAction(i);
+		RESULT = parser.e.getAction(i);
 	:}
 	| IDENTIFIER:i LPAREN NUMBER:n RPAREN
 	{:
@@ -293,7 +309,16 @@ acts ::=
 	:}
 	;
 	
-	
+number ::=
+	NUMBER:n
+	{:
+		RESULT = n;
+	:}
+	| MINUS NUMBER:n
+	{:
+		RESULT = n * -1;
+	:}
+	;
 
 
 	  

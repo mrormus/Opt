@@ -25,16 +25,14 @@ import java_cup.runtime.*;
   }
 %}
 
-Date				= (0[1-9]|1[012]) "/" (0[1-9]|[12][0-9]|3[01]) "/" \d\d
+Date				= (0[1-9]|1[012]) "/" (0[1-9]|[12][0-9]|3[01]) "/" [:digit:][:digit:]
 Time				= ([01][0-9]|2[0-3])\:([0-5][0-9])\:([0-5][0-9])
 WhiteSpace	  		= [ \t\f]
 Identifier     	  	= [:jletter:] ([:jletterdigit:]|[./])*
 DecIntegerLiteral 	= 0 | [1-9][0-9]*
-NewLine	  			= \n | \r | \r\n
 
 InputCharacter 		= [^\r\n]
-LineTerminator 		= \r|\n|\r\n
-Comment 			= "//" {InputCharacter}* {NewLine}?
+Comment 			= "//" {InputCharacter}* ?
 
 
 %state STRING
@@ -83,19 +81,15 @@ Comment 			= "//" {InputCharacter}* {NewLine}?
   /* delimiters */
   "("					{ return symbol(sym.LPAREN); }
   ")"					{ return symbol(sym.RPAREN); }
-  "["					{ return symbol(sym.LBRACKET); }
-  "]"					{ return symbol(sym.RBRACKET); }
   "<"					{ return symbol(sym.LANGLE); }
   ">"					{ return symbol(sym.RANGLE); }
   ";"					{ return symbol(sym.SEMI); }
+  ":"					{ return symbol(sym.COLON); }
   ","					{ return symbol(sym.COMMA); }
   "/"					{ return symbol(sym.SLASH); }
   
-  /* newline */
-  {NewLine}				{ return symbol(sym.NEWLINE); }
-  
   /* comments */
-  {Comment}				{ return symbol(sym.NEWLINE); }
+  {Comment}				{ /* ignore */}
   
   /* whitespace */
   {WhiteSpace}          { /* ignore */ }

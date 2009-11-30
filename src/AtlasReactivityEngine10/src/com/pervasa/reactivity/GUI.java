@@ -17,11 +17,9 @@
  */
 package com.pervasa.reactivity;
 
-// awt/swing GUI components
-import java.io.IOException;
-import java.io.Writer;
 
 import javax.swing.JFrame;
+import javax.swing.JOptionPane;
 
 
 
@@ -56,12 +54,12 @@ class GUI extends JFrame implements Console {
 	private javax.swing.JScrollPane jScrollPane3;
 	private javax.swing.JLabel instructionLabel;
 
-	private Writer commandLineParser;
+	private Engine engine;
 
 	// KitSampleApp constructor
 	// will be called by bundle's Activator class when started in Knopflerfish
-	GUI(Writer commandLineParser) {
-		this.commandLineParser = commandLineParser;
+	GUI(Engine engine) {
+		this.engine = engine;
 		this.setVisible(true);
 		initGUI();
 	}
@@ -69,6 +67,11 @@ class GUI extends JFrame implements Console {
 	// Sets the console text area to display String s
 	public void update(String s) {
 		console.setText(s);
+	}
+	
+	// Pops up a message box
+	public  void error(String s) {
+		JOptionPane.showMessageDialog(this, s);
 	}
 
 	// this method generates the basic GUI for the application bundle
@@ -191,15 +194,7 @@ class GUI extends JFrame implements Console {
 	}
 
 	private void parseCommandLine() {
-		try {
-			commandLineParser.write(commandLine.getText() + "\n");
-			Thread.yield();
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-
-		System.out.println("BEFORE PARSE+" + commandLine.getText());
+		engine.parse(commandLine.getText());
 
 		lastCommand.setText(">" + commandLine.getText());
 		commandLine.setText("");
