@@ -1,6 +1,14 @@
 package com.pervasa.reactivity;
 
+import org.osgi.framework.ServiceReference;
 import org.sensorplatform.actuators.servo.hs322.HS322Servo;
+import org.sensorplatform.sensors.digitalcontact.DigitalContactSensor;
+import org.sensorplatform.sensors.humidity.HumiditySensor;
+import org.sensorplatform.sensors.pressure.InterlinkPressureSensor;
+import org.sensorplatform.sensors.temperature.TemperatureSensor;
+
+import com.pervasa.atlas.dev.service.AtlasClient;
+import com.pervasa.atlas.dev.service.AtlasService;
 
 class Sensor {
 	
@@ -9,10 +17,14 @@ class Sensor {
 	private String nodeID;
 	private int deviceType;
 	private int value;
+	private ServiceReference sRef;
+	private AtlasService dev;
 	
-	Sensor (String nodeID, int deviceType, int initialValue) {
+	Sensor (String nodeID, int deviceType, ServiceReference sRef, AtlasService dev, int initialValue) {
 		this.nodeID = nodeID;
 		this.deviceType = deviceType;
+		this.sRef = sRef;
+		this.dev = dev;
 		this.value = initialValue;
 	}
 	
@@ -34,6 +46,46 @@ class Sensor {
 	
 	public String getNodeID() {
 		return nodeID;
+	}
+	
+	public void subscribe(AtlasClient ac) {
+		switch (deviceType) {
+		case DeviceType.PRESSURE:
+			InterlinkPressureSensor d = (InterlinkPressureSensor) dev;
+			d.subscribeToPressureData(ac);
+			break;
+		case DeviceType.CONTACT:
+			DigitalContactSensor d2 = (DigitalContactSensor) dev;
+			d2.subscribeToContactData(ac);
+			break;
+		case DeviceType.TEMP:
+			TemperatureSensor d3 = (TemperatureSensor) dev;
+			d3.subscribeToSensorData(ac);
+			break;
+		case DeviceType.HUMIDITY:
+			HumiditySensor d4 = (HumiditySensor) dev;
+			d4.subscribeToSensorData(ac);
+		}
+	}
+	
+	public void unsubscribe(AtlasClient ac) {
+		switch (deviceType) {
+		case DeviceType.PRESSURE:
+			InterlinkPressureSensor d = (InterlinkPressureSensor) dev;
+			d.unsubscribeFromPressureData(ac);
+			break;
+		case DeviceType.CONTACT:
+			DigitalContactSensor d2 = (DigitalContactSensor) dev;
+			d2.unsubscribeFromContactData(ac);
+			break;
+		case DeviceType.TEMP:
+			TemperatureSensor d3 = (TemperatureSensor) dev;
+			d3.unsubscribeFromSensorData(ac);
+			break;
+		case DeviceType.HUMIDITY:
+			HumiditySensor d4 = (HumiditySensor) dev;
+			d4.unsubscribeFromSensorData(ac);
+		}
 	}
 }
 

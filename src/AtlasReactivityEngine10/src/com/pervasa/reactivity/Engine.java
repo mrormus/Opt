@@ -37,6 +37,7 @@ class Engine {
 	Logic logic = new Logic();
 	Scheduler scheduler = new Scheduler();
 	State state = new State();
+	int counter = 0;
 
 	void init(GUI gui) {
 		this.gui = gui;
@@ -58,13 +59,12 @@ class Engine {
 	// props contains information about the sensor that produced the data
 	// (name, label, channel to which the device is connected, etc.
 	public void ReceivedData(String data, Properties props) {
+
 		logic.ReceivedData(data, props);
 	}
 
 	void close() {
-		// FIXME: Should the engine unsubscribe from all sensor data before
-		// closing?
-		// unsubscribeAll();
+		state.unsubscribe();
 	}
 
 	enum StateType {
@@ -196,21 +196,8 @@ class Engine {
 		// the Reactive Engine)
 		// to bind with attached Atlas devices.
 		public void addDevice(ServiceReference sref, AtlasService dev) {
-
-			if (dev instanceof InterlinkPressureSensor) {
-
-				// Set references to the Pressure sensor emulator
-				refPressure = sref;
-				sensorPressure = (InterlinkPressureSensor) dev;
-
-				// Put sensor in a HashMap of BASIC EVENTS
-				String nodeId = sref.getProperty("Node-Id").toString();
-				sensorMap.put(nodeId, new Sensor(nodeId, DeviceType.PRESSURE,
-						Sensor.NULL));
-
-			}
-
-			else if (dev instanceof HS322Servo) {
+			
+			if (dev instanceof HS322Servo) {
 
 				// Set references to the Servo sensor emulator
 				refServo = sref;
@@ -223,47 +210,24 @@ class Engine {
 				// Put actuator in a ServoMap
 				servoMap.put(nodeId, actuatorServo);
 
-			}
-
-			else if (dev instanceof DigitalContactSensor) {
-
-				// Set references to the Digital Contact sensor emulator
-				refContact = sref;
-				sensorContact = (DigitalContactSensor) dev;
-
-				// Put sensor in HashMap of BASIC EVENTS
+			} else { 
+				
+				int sType = 0;
+				if (dev instanceof InterlinkPressureSensor) {
+					sType = DeviceType.PRESSURE;
+				} else if (dev instanceof DigitalContactSensor) {
+					sType = DeviceType.CONTACT;
+				} else if (dev instanceof HumiditySensor) {
+					sType = DeviceType.HUMIDITY;
+				} else if (dev instanceof TemperatureSensor) {
+					sType = DeviceType.TEMP;
+				}
+				
 				String nodeId = sref.getProperty("Node-Id").toString();
-				sensorMap.put(nodeId, new Sensor(nodeId, DeviceType.CONTACT,
-						Sensor.NULL));
-
-			}
-
-			// 
-			else if (dev instanceof TemperatureSensor) {
-
-				// Set references to Temperature sensor emulator
-				refTemp = sref;
-				sensorTemp = (TemperatureSensor) dev;
-
-				// Put sensor in HashMap of BASIC EVENTS
-				String nodeId = sref.getProperty("Node-Id").toString();
-				sensorMap.put(nodeId, new Sensor(nodeId, DeviceType.TEMP,
-						Sensor.NULL));
-
-			}
-
-			else if (dev instanceof HumiditySensor) {
-
-				// Set references to Humidity sensor emulator
-				refHumid = sref;
-				sensorHumid = (HumiditySensor) dev;
-
-				// Put sensor in HashMap of BASIC EVENTS
-				String nodeId = sref.getProperty("Node-Id").toString();
-				sensorMap.put(nodeId, new Sensor(nodeId, DeviceType.HUMIDITY,
-						Sensor.NULL));
-
-			}
+				
+				Sensor sensor = new Sensor(nodeId, sType, sref, dev, Sensor.NULL);
+				sensorMap.put(nodeId, sensor);
+			}				
 
 		}
 
@@ -382,27 +346,9 @@ class Engine {
 		}
 
 		// Subscribes to the appropriate sensor.
-		void subscribe(int sType) {
-
-			switch (sType) {
-
-			case DeviceType.CONTACT:
-				sensorContact.subscribeToContactData(logic);
-				System.out.println("Subscribed to Contact Data");
-				break;
-			case DeviceType.PRESSURE:
-				sensorPressure.subscribeToPressureData(logic);
-				System.out.println("Subscribed to Pressure Data");
-				break;
-			case DeviceType.HUMIDITY:
-				sensorHumid.subscribeToSensorData(logic);
-				System.out.println("Subscribed to Humidity Data");
-				break;
-			case DeviceType.TEMP:
-				sensorTemp.subscribeToSensorData(logic);
-				System.out.println("Subscribed to Temperature Data");
-				break;
-			}
+		void subscribe(String nodeID) {
+			
+			sensorMap.get(nodeID).subscribe(logic);
 
 		}
 
@@ -431,17 +377,9 @@ class Engine {
 		}
 
 		public void unsubscribe() {
-			if (sensorContact != null) {
-				sensorContact.unsubscribeFromContactData(logic);
-			}
-			if (sensorPressure != null) {
-				sensorPressure.unsubscribeFromPressureData(logic);
-			}
-			if (sensorHumid != null) {
-				sensorHumid.unsubscribeFromSensorData(logic);
-			}
-			if (sensorTemp != null) {
-				sensorTemp.unsubscribeFromSensorData(logic);
+			
+			for (Sensor sensor : sensorMap.values()) {
+				sensor.unsubscribe(logic);
 			}
 		}
 
@@ -469,15 +407,15 @@ class Engine {
 				Window w = e.getWindow();
 				int wType = w.returnType();
 				Date now = new Date();
-				
+
 				Timer t1 = new Timer(); // Timer for executing event when window
 				// is open
-				
-				Date absStart =	w.getAbsStart();
+
+				Date absStart = w.getAbsStart();
 				Date absEnd = w.getAbsEnd();
 				Date relEnd = w.getRelEnd();
 				Date relStart = w.getRelStart();
-				
+
 				switch (wType) {
 
 				case Window.ABSOLUTE:
@@ -494,13 +432,15 @@ class Engine {
 						// Out of absolute window
 						// Check if currentTime is before startTime
 						if (now.before(absStart)) {
-						// Then it will open sometime in future, otherwise
-						// it will never open
-							
-						// Schedule it to start using t2 if it will open
-						// sometime in future
-							new Timer().schedule(new PullData(t1, true, evalFreq),absStart);
-							new Timer().schedule(new PullData(t1,false),absEnd);
+							// Then it will open sometime in future, otherwise
+							// it will never open
+
+							// Schedule it to start using t2 if it will open
+							// sometime in future
+							new Timer().schedule(new PullData(t1, true,
+									evalFreq), absStart);
+							new Timer().schedule(new PullData(t1, false),
+									absEnd);
 						}
 					}
 				case Window.RELATIVE:
@@ -512,7 +452,8 @@ class Engine {
 						executionTimers.put(t1, e);
 					} else {
 						executionTimers.put(t1, e);
-						new Timer().schedule(new PullData(t1, true, evalFreq), relStart);
+						new Timer().schedule(new PullData(t1, true, evalFreq),
+								relStart);
 					}
 				case Window.INFINITE:
 					// Window never closes, no need for t2
@@ -612,8 +553,8 @@ class Engine {
 	class Logic implements AtlasClient {
 
 		public void ReceivedData(String data, Properties props) {
-			
-			System.out.println("Received data.");
+			counter++;
+			System.out.println("Received data lulz." + counter);
 
 			// Update sensor reading value
 			String nodeId = props.getProperty("Node-Id");
@@ -647,10 +588,10 @@ class Engine {
 						/* SimpleEvent */
 						// Cast is safe isSimple() == true
 						SimpleEvent simpleEvent = (SimpleEvent) r.getEvent();
-						int sType = simpleEvent.getSensorType();
+						String nodeID = simpleEvent.getSensorNodeID();
 
 						// Subscribe to this one sensor
-						state.subscribe(sType);
+						state.subscribe(nodeID);
 
 					} else {
 						/* CompositeEvent or TFMEvent */
@@ -661,7 +602,7 @@ class Engine {
 						// Subscribe to each of them
 						Iterator<Sensor> iter = s.iterator();
 						while (iter.hasNext()) {
-							state.subscribe(iter.next().getType());
+							iter.next().subscribe(logic);
 						}
 
 					}
@@ -862,7 +803,7 @@ class Engine {
 	Event getEvent(String nodeID) {
 		return state.getEvent(nodeID);
 	}
-	
+
 	Rule getRule(String nodeID) {
 		return state.getRule(nodeID);
 	}
