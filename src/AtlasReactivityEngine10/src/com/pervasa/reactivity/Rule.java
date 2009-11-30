@@ -1,13 +1,13 @@
 package com.pervasa.reactivity;
 
 public class Rule {
-	String name;
-	OptEvent event;
-	Action action;
-	Condition condition;
+	private String name;
+	private Event event;
+	private Action action;
+	private Condition condition;
 	
 	
-	public Rule (String name, OptEvent event, Condition condition, Action action){
+	public Rule (String name, Event event, Condition condition, Action action){
 		this.name = name;
 		this.event = event;
 		this.action = action;
@@ -43,7 +43,7 @@ public class Rule {
 		return condition;
 	}
 	
-	OptEvent getEvent() {
+	Event getEvent() {
 		return event;
 	}
 	

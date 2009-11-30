@@ -6,6 +6,8 @@ import java.io.IOException;
 import java.io.Writer;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Scanner;
@@ -39,7 +41,7 @@ class Engine {
 		this.errorz = errorz;
 		this.console = console;
 		this.commandLineWriter = commandLineWriter;
-		//FIXME
+		// FIXME
 		System.err.println("Engine init");
 	}
 
@@ -95,12 +97,12 @@ class Engine {
 		Map<String, HS322Servo> servoMap = new HashMap<String, HS322Servo>();
 		Map<String, Sensor> sensorMap = new HashMap<String, Sensor>();
 		Map<String, Actuator> actuators = new HashMap<String, Actuator>();
-		Map<String, OptEvent> eventList = new ConcurrentHashMap<String, OptEvent>();
+		Map<String, Event> eventList = new ConcurrentHashMap<String, Event>();
 		Map<String, Condition> runtimeConditions = new ConcurrentHashMap<String, Condition>();
 		Map<String, Action> runtimeActions = new ConcurrentHashMap<String, Action>();
 		Map<String, Rule> rules = new HashMap<String, Rule>();
 
-		Collection<OptEvent> getEvents() {
+		Collection<Event> getEvents() {
 			return eventList.values();
 		}
 
@@ -138,7 +140,8 @@ class Engine {
 			StringBuilder buf = new StringBuilder();
 			buf.append(title + "\n");
 			for (Entry<String, Object> e : (Set<Entry>) map.entrySet()) {
-				buf.append(e.getKey() + " = " + e.getValue() + "\n");
+				buf.append(e.getKey().toString() + " = "
+						+ e.getValue().toString() + "\n");
 			}
 			return buf.toString();
 		}
@@ -155,22 +158,6 @@ class Engine {
 			return runtimeConditions.get(name);
 		}
 
-		Rule getRule(String name) {
-			return rules.get(name);
-		}
-
-		public boolean basicActionExists(String s) {
-			return actuators.containsKey(s);
-		}
-
-		public boolean basicEventExists(String s) {
-			return sensorMap.containsKey(s);
-		}
-
-		public boolean atomicEventExists(String s) {
-			return eventList.containsKey(s);
-		}
-
 		public boolean actuatorExists(String nodeID) {
 			return actuators.containsKey(nodeID);
 		}
@@ -179,40 +166,20 @@ class Engine {
 			return eventList.containsKey(s);
 		}
 
-		public boolean eventExists(OptEvent e) {
-			return eventList.containsValue(e);
-		}
-
 		public boolean actionExists(String s) {
 			return runtimeActions.containsKey(s);
-		}
-
-		public boolean actionExists(Action a) {
-			return runtimeActions.containsValue(a);
 		}
 
 		public boolean conditionExists(String s) {
 			return runtimeConditions.containsKey(s);
 		}
 
-		public boolean conditionExists(Condition c) {
-			return runtimeConditions.containsValue(c);
-		}
-
 		public boolean ruleExists(String s) {
 			return rules.containsKey(s);
 		}
 
-		public boolean ruleExists(Rule r) {
-			return rules.containsValue(r);
-		}
-
 		public boolean sensorExists(String nodeID) {
 			return sensorMap.containsKey(nodeID);
-		}
-
-		void addRule(String name, Rule r) {
-			rules.put(name, r);
 		}
 
 		// this method is called by the Reactive Engine bundle's Activator when
@@ -380,7 +347,7 @@ class Engine {
 			}
 		}
 
-		OptEvent getEvent(String name) {
+		Event getEvent(String name) {
 			if (eventList.containsKey(name)) {
 				return eventList.get(name);
 			} else {
@@ -397,7 +364,7 @@ class Engine {
 			run = b;
 		}
 
-		public void add(String name, OptEvent e) {
+		public void add(String name, Event e) {
 			eventList.put(name, e);
 		}
 
@@ -437,7 +404,7 @@ class Engine {
 			}
 
 		}
-		
+
 		void pull(int sType) {
 
 			switch (sType) {
@@ -481,27 +448,27 @@ class Engine {
 
 	private class Scheduler {
 
-		private Map<OptEvent, Timer> timers = new HashMap<OptEvent, Timer>();
+		private Map<TFMEvent, Timer> timers = new HashMap<TFMEvent, Timer>();
 
 		/*
 		 * Called when the time window of a TFM event opens.
 		 */
-		void add(OptEvent e) {
+		void add(TFMEvent e) {
 			// TODO: Create a timer for the TFM event, store it, and start it
 			// with the PullData class.
-					
+
 			int evalFreq = e.getEvalFreq().getDuration();
-				
+
 			Timer t = new Timer();
 			timers.put(e, t);
-			t.scheduleAtFixedRate(new PullData(e), 0, evalFreq*1000);
+			t.scheduleAtFixedRate(new PullData(e), 0, evalFreq * 1000);
 
 		}
 
 		/*
 		 * Called when the time window of a TFM event closes.
 		 */
-		void remove(OptEvent e) {
+		void remove(TFMEvent e) {
 			Timer t = timers.get(e);
 			t.cancel();
 			timers.remove(e);
@@ -509,45 +476,34 @@ class Engine {
 
 		private class PullData extends TimerTask {
 
-			OptEvent e;
+			TFMEvent e;
 
-			PullData(OptEvent e) {
-				
-				this.e = e; 
+			PullData(TFMEvent e) {
+
+				this.e = e;
 			}
 
 			@Override
 			public void run() {
-				
-				OptEvent me = e.getModifiedEvent();
-				
-				System.out.println("Pull data at:" + System.currentTimeMillis());
-				
-				//findSensors(me);
+
+				Event me = e.getModifiedEvent();
+
+				System.out
+						.println("Pull data at:" + System.currentTimeMillis());
+
+				// findSensors(me);
 			}
-			
-			void findSensors(OptEvent e) {
 
-				if (e.left == null && e.right == null) {
-					// We've reached a simple event, find it's sensor type and
-					// pull the sensor data
-					int sType = e.getSensorType();
-					state.pull(sType);
-					
-				}
-
-				else {
-					if (e.left != null) {
-						findSensors(e.left);
-					}
-					if (e.right != null) {
-						findSensors(e.right);
-					}
+			void findSensors(Event e) {
+				Set<Sensor> s = new HashSet<Sensor>();
+				e.addSensorsTo(s);
+				Iterator<Sensor> iter = s.iterator();
+				while (iter.hasNext()) {
+					state.pull(iter.next().getType());
 				}
 
 			}
-			
-			
+
 		}
 
 	}
@@ -561,7 +517,7 @@ class Engine {
 			state.getSensor(nodeId).update(Integer.parseInt(data));
 
 			// Change the truth values for the events
-			for (OptEvent e : state.getEvents()) {
+			for (Event e : state.getEvents()) {
 				e.update();
 			}
 			// Check whether any rules need to be triggered
@@ -582,55 +538,33 @@ class Engine {
 			for (Rule r : state.getRules()) {
 
 				if (r.getCondition().getValue()) {
-
-					// Subscribe to the sensors
-
-					OptEvent e = r.event;
+					// Only subscribe if this Rule's Condition is true
 
 					if (r.getEvent().isSimple()) {
+						/* SimpleEvent */
+						// Cast is safe isSimple() == true
+						SimpleEvent simpleEvent = (SimpleEvent) r.getEvent();
+						int sType = simpleEvent.getSensorType();
 
-						// Simple atomic event
-
-						int sType = r.getEvent().getSensorType();
-
-						System.out.println(sType);
-
+						// Subscribe to this one sensor
 						state.subscribe(sType);
 
 					} else {
-
-						// Not a simple atomic event
+						/* CompositeEvent or TFMEvent */
 						// Find all the sensors that the event uses
-						
-						if (r.getEvent().getModifiedEvent() == null) {
-							findSensors(e);
+						Set<Sensor> s = new HashSet<Sensor>();
+						r.getEvent().addSensorsTo(s);
+
+						// Subscribe to each of them
+						Iterator<Sensor> iter = s.iterator();
+						while (iter.hasNext()) {
+							state.subscribe(iter.next().getType());
 						}
 
 					}
 
 				}
 
-			}
-
-		}
-
-		// Had to create a new function so that I could recurse :)
-		void findSensors(OptEvent compositeEvent) {
-
-			if (compositeEvent.left == null && compositeEvent.right == null) {
-				// We've reached a simple event, find it's sensor type and
-				// subscribe.
-				int sType = compositeEvent.getSensorType();
-				state.subscribe(sType);
-			}
-
-			else {
-				if (compositeEvent.left != null) {
-					findSensors(compositeEvent.left);
-				}
-				if (compositeEvent.right != null) {
-					findSensors(compositeEvent.right);
-				}
 			}
 
 		}
@@ -690,7 +624,7 @@ class Engine {
 		updateConsole(buf.toString());
 	}
 
-	void defineEvent(String name, OptEvent e) {
+	void defineEvent(String name, Event e) {
 
 		// Debugging snippet to see the difference between expression
 		// and expansion
@@ -802,7 +736,7 @@ class Engine {
 
 		}
 	}
-	
+
 	void loadFile(String path) {
 		Scanner sc;
 		try {
@@ -812,7 +746,8 @@ class Engine {
 					commandLineWriter.write(sc.nextLine());
 				} catch (IOException e) {
 					// FIXME: Not sure what to do here
-					System.err.println("IOException while parsing input from file.");
+					System.err
+							.println("IOException while parsing input from file.");
 					e.printStackTrace();
 				}
 			}
@@ -836,28 +771,36 @@ class Engine {
 		return state.getAction(nodeID);
 	}
 
-	OptEvent getEvent(String nodeID) {
+	Event getEvent(String nodeID) {
 		return state.getEvent(nodeID);
 	}
 
-	OptEvent createEvent(String nodeID, Integer min, Integer max) {
+	/*
+	 * Construct a SimpleEvent given a sensor's node ID and a range of
+	 * triggering values
+	 */
+	SimpleEvent createEvent(String nodeID, Integer min, Integer max) {
 		if (state.sensorExists(nodeID)) {
-			return new OptEvent(state.getSensor(nodeID), min, max);
+			return new SimpleEvent(state.getSensor(nodeID), min, max);
 		} else {
 			error("Sensor '" + nodeID + "' does not exist.");
 			return null;
 		}
 	}
 
-	OptEvent createEvent(String nodeID, Integer value) {
+	/*
+	 * Construct a SimpleEvent given a sensor's node ID and a triggering sensor
+	 * reading
+	 */
+	Event createEvent(String nodeID, Integer value) {
 		return createEvent(nodeID, value, value);
 	}
-	
+
 	/* Core Methods */
 	/*
 	 * These methods are called by Core.
 	 */
-	
+
 	void addDevice(ServiceReference sref, AtlasService dev) {
 		state.addDevice(sref, dev);
 	}
