@@ -1,27 +1,4 @@
-Atlas Reactivity Engine Reference Implementation
+Patrick Flanagan
+Cheenu Madan
 
-ReadMe
-
-Nov. 9th, 2009.
-
-This Reactivity Engine implementation is based on one of the student's term project submissions in 
-the Mobile Computing Class at the University of Florida in fall 2008. The original authors are
-Ameya Gupte and V. Rakesh Kumar.
-
-We have tailored the code slightly to fit the project this year. Before you begin install
-and use this Reactivity Engine, please make sure to read the documents (espeically the 
-project report) written by the authors. 
-
-This reference implementation adopts the same set of commands as defined in the project
-specification. However, some details (such as how to express a method in the action definiction)
-are not covered in the project spec, and the authors made their own schema and explained in their
-project report.That's why it is important for you to read the documents first and find out the test
-cases.
-
-Although we have done quite extensive tests and picked what we believe is the most readable and 
-reliable implementation, it is always possible that you will spot bugs. Please let us (and the class) 
-know if you find any, we will fixed those bugs and provide updated versions.
-
-
-
-
+Report is in /doc/
