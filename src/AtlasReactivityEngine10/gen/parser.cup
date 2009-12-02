@@ -106,7 +106,7 @@ define	 ::=
 			parser.e.defineEvent(i, e);
 		}
 	:}
-	| DEFINE ACT IDENTIFIER:i EQUALS act:a
+	| DEFINE ACT IDENTIFIER:i EQUALS acts:a
 	{:
 		if (a == null) {
 			// Empty string indicates that an invalid action was specified

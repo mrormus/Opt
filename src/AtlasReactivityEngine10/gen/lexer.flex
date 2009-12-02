@@ -25,8 +25,10 @@ import java_cup.runtime.*;
   }
 %}
 
-Date				= (0[1-9]|1[012]) "/" (0[1-9]|[12][0-9]|3[01]) "/" [:digit:][:digit:]
-Time				= ([01][0-9]|2[0-3])\:([0-5][0-9])\:([0-5][0-9])
+
+Date				= {Digits}"/"{Digits}"/"{Digits}
+Digits				= ([:digit:]|[:digit:][:digit:])
+Time				= {Digits}\:{Digits}\:{Digits}
 WhiteSpace	  		= [ \t\f]
 Identifier     	  	= [:jletter:] ([:jletterdigit:]|[./])*
 DecIntegerLiteral 	= 0 | [1-9][0-9]*

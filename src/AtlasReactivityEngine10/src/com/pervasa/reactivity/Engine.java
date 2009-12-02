@@ -6,6 +6,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.StringReader;
 import java.io.Writer;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -710,11 +711,21 @@ class Engine {
 		}
 	}
 
-	void defineAction(String name, Action a) {
+	void defineAction(String name, ArrayList<Action> a) {
 		if (!state.run) {
 			if (!state.actionExists(name)) {
-				a.setName(name);
-				state.add(name, a);
+				Action finalAct = null;
+				if (a.size()==1) {
+					for (Action act : a) {
+						finalAct = act;
+					}
+				} else {
+					finalAct = new CompositeAction(a);
+					
+				}
+				finalAct.setName(name);
+				state.add(name, finalAct);
+				
 			} else {
 				error("Action '" + name + "' already exists");
 			}
