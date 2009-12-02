@@ -364,11 +364,29 @@ class Engine {
 
 	}
 
+	/**
+	 * The Reactivity Engine component that takes care of scheduling updates for
+	 * TFMEvents. While the Logic component handles updates for Composite and
+	 * Simple events, TFMEvents need to log each update, and their evaluation
+	 * depends on exceeding a certain threshold, so they cannot simply be
+	 * updated with the other events.
+	 * <p>
+	 * Hence, this class schedules updates for TFMEvents based on the various
+	 * windows allowed by the system.
+	 * 
+	 * @author Patrick
+	 * 
+	 */
 	private class Scheduler {
 
+		// FIXME Relative timers do not close their windows gracefully. At the
+		// close time, there is a period of frenetic activity during which
+		// several timer threads are spawned and canceled. This is probably due
+		// to the now.after(Date) checks giving wonky results at the edge case.
+
 		// Keep a threadsafe collection of all spawned timers.
-		// Must be threadsafe, because spawned timers can spawn
-		// other timers
+		// (Must be threadsafe, because spawned timers spawn
+		// other timers)
 		private ConcurrentLinkedQueue<Timer> spawnedTimers;
 
 		/* Initialization */
@@ -385,7 +403,7 @@ class Engine {
 			return t;
 		}
 
-		/*
+		/**
 		 * Called whenever a TFM event is successfully parsed. Even if the TFM
 		 * was an ad-hoc definition as a part of a rule (eg.
 		 * "DEFINE rule r = <nil,10,1>(e1),true,a1", but a1 is undefined, so the
@@ -465,8 +483,7 @@ class Engine {
 
 					// Window never closes, no need for management timers.
 					spawnTimer().scheduleAtFixedRate(
-							new TFMUpdateTask(e, sensors), 0,
-							evalFreq * 1000);
+							new TFMUpdateTask(e, sensors), 0, evalFreq * 1000);
 				}
 
 			} catch (Exception exn) {
@@ -543,7 +560,7 @@ class Engine {
 		 * 
 		 */
 		private class TFMAbsoluteStopTask extends TimerTask {
-			
+
 			Timer timer;
 			private TFMEvent e;
 
@@ -553,7 +570,9 @@ class Engine {
 			}
 
 			/**
-			 * The task executed when a timer fires.
+			 * When the timer fires, calls realUpdate() on the TFMEvent (which
+			 * propagates an update down through its modifiedEveent) and then
+			 * cancels the associated update timer.
 			 */
 			public void run() {
 				// Call realUpdate() one last time. Since we are now outside the
@@ -569,9 +588,11 @@ class Engine {
 		}
 
 		/**
-		 * A TimerTask for scheduling update Timer
+		 * A TimerTask for scheduling update timers for TFMEvents with absolute
+		 * windows.
+		 * 
 		 * @author Patrick
-		 *
+		 * 
 		 */
 		private class TFMAbsoluteStartTask extends TimerTask {
 			Set<Sensor> sensors;
@@ -586,14 +607,32 @@ class Engine {
 				this.end = end;
 			}
 
+			/**
+			 * When the timer for this task fires, spawn two timers:
+			 * 
+			 * 1) a fixed-rate update timer using TFMUpdateTask
+			 * 
+			 * 2) a one-shot timer to cancel the first timer
+			 */
 			public void run() {
+
+				// Schedule the fixed-rate update timer to start immediately
 				Timer t = spawnTimer();
 				t.scheduleAtFixedRate(new TFMUpdateTask(e, sensors), 0,
 						evalFreq * 1000);
+
+				// Schedule the one-shot cancel timer
 				spawnTimer().schedule(new TFMAbsoluteStopTask(e, t), end);
 			}
 		}
 
+		/**
+		 * A TimerTask for scheduling update timers for TFMEvents with relative
+		 * windows.
+		 * 
+		 * @author Patrick
+		 * 
+		 */
 		private class TFMRelativeStartTask extends TimerTask {
 
 			Set<Sensor> sensors;
@@ -607,16 +646,29 @@ class Engine {
 				this.e = e;
 			}
 
-			/*
-			 * Action taken when this timer fires.
+			/**
+			 * When the timer for this task fires, spawn two timers:
+			 * 
+			 * 1) a fixed-rate update timer using TFMUpdateTask
+			 * 
+			 * 2) a one-shot timer to cancel the first timer and spawn the next
+			 * timer, using TFMRelativeStartTask
 			 */
 			public void run() {
 
+				// The closing time for this relative window. getRelEnd()
+				// returns today's window close if the window hasn't expired and
+				// tomorrow's window close if it has. This task will never be
+				// scheduled today if the window has already expired, so this
+				// call will always return today's closing window time.
 				Date end = e.getWindow().getRelEnd();
 
+				// Schedule the update timer to start immediately
 				Timer t = spawnTimer();
 				t.scheduleAtFixedRate(new TFMUpdateTask(e, sensors), 0,
 						evalFreq * 1000);
+
+				// Schedule the cancel-and-reschedule RelativeStop timer
 				spawnTimer().schedule(
 						new TFMRelativeStopTask(t, e, sensors, evalFreq), end);
 
@@ -624,6 +676,14 @@ class Engine {
 
 		}
 
+		/**
+		 * A TimerTask for canceling update timers for TFMEvents with relative
+		 * windows. Such events' windows will open again tomorrow, so this task
+		 * also schedules a new timer to fire at the window's open tomorrow.
+		 * 
+		 * @author Patrick
+		 * 
+		 */
 		private class TFMRelativeStopTask extends TimerTask {
 			Timer t;
 			Set<Sensor> sensors;
@@ -640,20 +700,51 @@ class Engine {
 
 			}
 
+			/**
+			 * When the timer for this task fires, two timers will be spawned:
+			 * 
+			 * 1) a fixed-rate Timer using TFMUpdateTask
+			 * 
+			 * 2) a one-shot Timer that does two things:
+			 * 
+			 * A) cancels the Timer from (1) at the window's end
+			 * 
+			 * B) schedules another RelativeStartTask
+			 */
 			public void run() {
-				t.cancel();
+
+				// Call realUpdate() one last time. Since we are now outside the
+				// window, this will cause the event's reportFreq to be reset,
+				// and thus cause this event to evaluate to false.
 				e.realUpdate();
 
+				// Cancel the timer. If any update tasks are currently ongoing,
+				// those tasks' realUpdate() calls will also reflect that the
+				// window has expired, so there will be no conflicts.
+				t.cancel();
+
+				// Since this task fires only after today's window has expired,
+				// this call to getRelStart() will always return tomorrow's
+				// window's start time.
 				Date start = e.getWindow().getRelStart();
 
+				// Schedule a new timer for tomorrow
 				spawnTimer().schedule(
-				// The StartTask schedules its own StopTask
 						new TFMRelativeStartTask(e, sensors, evalFreq), start);
 			}
 		}
 
 	}
 
+	/**
+	 * The Logic component of the Reactivity Engine handles the ReceivedData
+	 * callbacks from the various sensors and the regular updating of Composite
+	 * and Simple events. It also contains the logic for starting and stopping
+	 * the engine.
+	 * 
+	 * @author Patrick
+	 * 
+	 */
 	class Logic implements AtlasClient {
 
 		public void ReceivedData(String data, Properties props) {
@@ -675,9 +766,10 @@ class Engine {
 
 		}
 
-		// This method is called when the RE enters the RUN mode
-		// or when the SET command is used AND the RE is in RUN mode
-
+		/**
+		 * Called when the RE enters the RUN mode or when the SET command is
+		 * used AND the RE is in RUN mode
+		 */
 		void subscriptionManager() {
 
 			// iterate through rules checking if the condition is true
@@ -724,18 +816,25 @@ class Engine {
 
 		}
 
+		/**
+		 * Starts the engine, allowing TFMEvent statuses to be updated by their
+		 * update timers and subscribing to the sensors required by the
+		 * Composite and Simple events
+		 */
 		public void start() {
 			state.setRunning(true);
 			subscriptionManager();
-
 		}
 
+		/**
+		 * Stops the engine, causing TFMEvent update timers to stop pulling data
+		 * and unsubscribing from any other sensors.
+		 */
 		void stop() {
 			state.setRunning(false);
 
 			// Unsubscribe from all the sensors once the engine stops
 			// running
-
 			state.unsubscribe();
 
 		}
@@ -779,6 +878,31 @@ class Engine {
 		updateConsole(buf.toString());
 	}
 
+	/* DEFINE Directive */
+	/*
+	 * These methods have several things in common. Firstly, they all check that
+	 * state.isRunning() is false. The system does not allow new definitions
+	 * while running.
+	 * 
+	 * Secondly, they all check that an object with this name does not already
+	 * exist, update the state with the name, and provide the object itself with
+	 * a backreference to its new identifier. This is useful when pretty
+	 * printing the system state with the LIST directive.
+	 * 
+	 * Finally, the constructors for all of these objects do more error checking
+	 * to ensure that the system remains in a consistent, stable state. These
+	 * constructors are called in the parser, where these objects come from.
+	 */
+
+	/**
+	 * Corresponds to the <code>DEFINE event</code> directive.
+	 * 
+	 * @param name
+	 *            The name of the event as it will be referred to by the user
+	 * @param e
+	 *            The Event object, a reference to the actual Event, used by the
+	 *            system
+	 */
 	void defineEvent(String name, Event e) {
 
 		if (!state.isRunning()) {
@@ -794,6 +918,16 @@ class Engine {
 		}
 	}
 
+	/**
+	 * Corresponds to the <code>DEFINE condition</code> directive.
+	 * 
+	 * @param name
+	 *            The name of the condition as it will be referred to by the
+	 *            user
+	 * @param c
+	 *            The Condition object, a reference to the actual Condition,
+	 *            used by the system
+	 */
 	void defineCondition(String name, Condition c) {
 		if (!state.isRunning()) {
 			if (!state.conditionExists(name)) {
@@ -807,15 +941,28 @@ class Engine {
 		}
 	}
 
+	/**
+	 * Corresponds to the <code>DEFINE action</code> directive.
+	 * 
+	 * @param name
+	 *            The name of the action as it will be referred to by the user
+	 * @param a
+	 *            A List of actions, as generated by the parser. This list will
+	 *            be resolved internally to a single action, either Composite
+	 *            or, if the List contains only one action, that single element.
+	 */
 	void defineAction(String name, ArrayList<Action> a) {
 		if (!state.run) {
 			if (!state.actionExists(name)) {
 				Action finalAct = null;
 				if (a.size() == 1) {
+					// If the List contains only one element
 					for (Action act : a) {
+						// Make this reference be equivalent to that element
 						finalAct = act;
 					}
 				} else {
+					// Otherwise, compose all the actions into a CompositeAction
 					finalAct = new CompositeAction(a);
 
 				}
@@ -830,6 +977,15 @@ class Engine {
 		}
 	}
 
+	/**
+	 * Corresponds to the <code>DEFINE rule</code> directive.
+	 * 
+	 * @param name
+	 *            The name of the action as it will be referred to by the user
+	 * @param r
+	 *            The Condition object, a reference to the actual Condition,
+	 *            used by the system
+	 */
 	void defineRule(String name, Rule r) {
 		if (!state.run) {
 			if (!state.ruleExists(name)) {
@@ -843,10 +999,23 @@ class Engine {
 		}
 	}
 
+	/* SET Directive */
+
+	/**
+	 * Corresponds to the <code>SET condition</code> directive.
+	 * 
+	 * @param name
+	 *            The name of the condition to be set
+	 * @param b
+	 *            The boolean value to which the named condition will be set
+	 */
 	void setCondition(String name, boolean b) {
 		if (state.conditionExists(name)) {
 			state.getCondition(name).set(b);
 
+			// This directive is allowed when the system is running. If it is
+			// running, the subscription manager needs to be notified of the
+			// condition change so that the proper sensors are subscribed to.
 			if (state.isRunning()) {
 				logic.subscriptionManager();
 			}
@@ -857,13 +1026,14 @@ class Engine {
 		}
 	}
 
+	/* RUN Directive */
+
 	void run() {
 		if (state.isRunning()) {
 			error("RUN mode is already on");
 			return;
 		} else {
 			logic.start();
-
 		}
 
 	}
@@ -874,9 +1044,10 @@ class Engine {
 			return;
 		} else {
 			logic.stop();
-
 		}
 	}
+
+	/* LOAD Directive */
 
 	void loadFile(String path) {
 		Scanner sc;
@@ -886,6 +1057,10 @@ class Engine {
 				parse(sc.nextLine());
 			}
 		} catch (FileNotFoundException e) {
+
+			// The path is relative to the Knoplerfish's framework.jar
+			// directory. This information is helpfully reported to the user if
+			// they try to load anything that does not exist in that directory.
 			error("File '" + System.getProperty("user.dir")
 					+ System.getProperty("file.separator") + path
 					+ "' not found.");
@@ -903,6 +1078,11 @@ class Engine {
 		}
 	}
 
+	/*
+	 * The following accessor methods are used by the parser when constructing
+	 * the objects to pass to the define methods above
+	 */
+
 	Action getAction(String nodeID) {
 		return state.getAction(nodeID);
 	}
@@ -915,9 +1095,18 @@ class Engine {
 		return state.getRule(nodeID);
 	}
 
-	/*
-	 * Construct a SimpleEvent given a sensor's node ID and a range of
-	 * triggering values
+	/**
+	 * Called by the parser when provided with an event string of the form
+	 * "NodeID(min, max)". Verifies that the sensor node exists.
+	 * 
+	 * @param nodeID
+	 *            NodeID of the associated sensor
+	 * @param min
+	 *            Minimum value that would cause this event to trigger
+	 * @param max
+	 *            Maximum value that would cause this event to trigger
+	 * @return A SimpleEvent object if the sensor node exists, null otherwise.
+	 * 
 	 */
 	SimpleEvent createEvent(String nodeID, Integer min, Integer max) {
 		if (state.sensorExists(nodeID)) {
@@ -928,23 +1117,64 @@ class Engine {
 		}
 	}
 
-	/*
-	 * Construct a SimpleEvent given a sensor's node ID and a triggering sensor
-	 * reading
+	/**
+	 * Called by the parser when provided with an event string of the form
+	 * "NodeID(value)". Verifies that the sensor node exists.
+	 * 
+	 * @param nodeID
+	 *            NodeID of the associated sensor
+	 * @param value
+	 *            Value that would cause this event to trigger
+	 * 
+	 * @return A SimpleEvent object if the sensor node exists, null otherwise.
+	 * 
 	 */
 	Event createEvent(String nodeID, Integer value) {
+		// Functionally, this is a SimpleEvent with a range, where the minimum
+		// of the range is equal to the maximum.
 		return createEvent(nodeID, value, value);
 	}
 
+	/**
+	 * Called by the parser when provided with an event string of the form
+	 * "<w,ef,rf>(e)". Even if the rest of the command string fails to complete
+	 * (eg. if this is part of a <code>DEFINE event</code> directive, and the
+	 * identifier has already been defined), this call will still result in a
+	 * TFMEvent creation and subsequent timer scheduling.
+	 * 
+	 * @param modifiedEvent
+	 *            The root of the event tree which this TFMEvent will be
+	 *            managing
+	 * @param w
+	 *            The window, constructed by the parser
+	 * @param ef
+	 *            The evaluation frequency, constructed by the parser
+	 * @param n
+	 *            The report frequency integer, used as input for the TFMEvent
+	 *            constructor
+	 * @return A reference to the newly constructed TFMEvent
+	 */
 	TFMEvent createTFMEvent(Event modifiedEvent, Window w, EvalFreq ef,
 			Integer n) {
+
+		// FIXME Don't actually add this TFM to the scheduler until the rest of
+		// the command is completed. As things stand, if there's a non-syntactic
+		// error in the command string, this TFMEvent is created and scheduled
+		// even if the command string flops.
+
 		TFMEvent e = new TFMEvent(modifiedEvent, w, ef, n);
 		scheduler.add(e);
 		return e;
 	}
 
-	/*
-	 * Construct a new Condition
+	/**
+	 * Called by the parser when provided with a condition string of the form
+	 * "true" or "false".
+	 * 
+	 * @param b
+	 *            The initial value of the new condition.
+	 * @return A reference to the new condition
+	 * 
 	 */
 	Condition createCondition(boolean b) {
 		return new Condition(b);
