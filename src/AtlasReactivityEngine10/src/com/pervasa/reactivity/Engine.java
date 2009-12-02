@@ -364,17 +364,15 @@ class Engine {
 
 	}
 
-	enum Type {
-		START, STOPREL, STOP
-	}
-
 	private class Scheduler {
 
+		// Keep a threadsafe collection of all spawned timers.
+		// Must be threadsafe, because spawned timers can spawn
+		// other timers
 		private ConcurrentLinkedQueue<Timer> spawnedTimers;
 
 		/* Initialization */
 		Scheduler() {
-
 			spawnedTimers = new ConcurrentLinkedQueue<Timer>();
 		}
 
@@ -388,38 +386,54 @@ class Engine {
 		}
 
 		/*
-		 * Called when a TFM event is created.
+		 * Called whenever a TFM event is successfully parsed. Even if the TFM
+		 * was an ad-hoc definition as a part of a rule (eg.
+		 * "DEFINE rule r = <nil,10,1>(e1),true,a1", but a1 is undefined, so the
+		 * rule definition fails), the TFM and associated timers will be
+		 * spawned.
+		 * 
+		 * This could be improved by not spawning the timers for a TFMEvent
+		 * until the rule is completely parsed and validated.
 		 */
 		void add(TFMEvent e) {
 
-			System.err.println("adding tfm");
+			// FIXME: Don't spawn timers unless this event is definitely
+			// necessary.
 
 			try {
 				int evalFreq = e.getEvalFreq().getDuration();
 				Window w = e.getWindow();
-				int wType = w.returnType();
+				Window.Type wType = w.returnType();
 
 				// Today
 				Date now = new Date();
 
-				// Get sensors from the event
-				Set<Sensor> sensors = getSensors(e);
+				// Get sensors from the modified event
+				Set<Sensor> sensors = new HashSet<Sensor>();
+				e.getModifiedEvent().addSensorsTo(sensors);
 
 				switch (wType) {
 
-				case Window.ABSOLUTE:
+				case ABSOLUTE:
 					if (now.before(w.getRelEnd())) {
 						// Then it will open sometime in future
 						// or it is currently in the window
 
-						// Schedule it to start using t2
-						// (a Timer with a passed start time will start
+						// Create an AbsoluteStartTask
+						Date start = w.getAbsStart();
+						Date end = w.getAbsEnd();
+						TFMAbsoluteStartTask startTask = new TFMAbsoluteStartTask(
+								e, sensors, evalFreq, end);
+						// When it fires, startTask will spawn two timers:
+						// 1) a fixed rate Timer using TFMUpdateTask
+						// 2) a one-shot Timer to cancel the above Timer
+
+						// Schedule startTask to fire once at absStart.
+						// (a Timer with an expired start time will start
 						// immediately, so if we are within the window, we're
-						// fine
-						spawnTimer().schedule(
-						// The StartTask schedules its own StopTask
-								new TFMStartTask(e, sensors, evalFreq, w
-										.getAbsEnd()), w.getAbsStart());
+						// fine)
+
+						spawnTimer().schedule(startTask, start);
 
 					} else {
 						// The window has passed. This event will never fire.
@@ -428,16 +442,30 @@ class Engine {
 
 					break;
 
-				case Window.RELATIVE:
-					spawnTimer().schedule(
-					// The StartTask schedules its own StopTask
-							new TFMRelativeStartTask(e, sensors, evalFreq), e.getWindow().getRelStart());
+				case RELATIVE:
+					/* TFMEvent with a relative window */
+
+					// Create a new RelativeStartTask
+					TFMRelativeStartTask startTask = new TFMRelativeStartTask(
+							e, sensors, evalFreq);
+					// startTask, when fired, will spawn two timers:
+					// 1) a fixed-rate Timer using TFMUpdateTask
+					// 2) a one-shot Timer that does two things:
+					// __A) cancels the Timer from (1)
+					// __B) schedules another RelativeStartTask
+
+					// schedule startTask to fire once at getRelStart()
+					// getRelStart() returns today's window, if it hasn't
+					// already expired, or tomorrow's window, if it has.
+					spawnTimer().schedule(startTask, w.getRelStart());
+
 					break;
 
-				case Window.INFINITE:
-					// Window never closes, no need for t2
+				case INFINITE:
+
+					// Window never closes, no need for management timers.
 					spawnTimer().scheduleAtFixedRate(
-							new TFMExecutionTask(e, sensors), 0,
+							new TFMUpdateTask(e, sensors), 0,
 							evalFreq * 1000);
 				}
 
@@ -449,62 +477,110 @@ class Engine {
 
 		}
 
+		/**
+		 * Cleans up this scheduler by calling cancel() on all spawned timers.
+		 * 
+		 * @see Timer
+		 */
 		void close() {
 			for (Timer t : spawnedTimers) {
 				t.cancel();
 			}
 		}
 
-		Set<Sensor> getSensors(Event e) {
-			Set<Sensor> s = new HashSet<Sensor>();
-			e.addSensorsTo(s);
-			return s;
-		}
-
-		private class TFMExecutionTask extends TimerTask {
+		/**
+		 * A TimerTask for updating TFMEvents during their window. Should always
+		 * be scheduled within a fixed-rate timer.
+		 * 
+		 * @author Patrick
+		 * 
+		 */
+		private class TFMUpdateTask extends TimerTask {
 
 			private Set<Sensor> sensors;
 			private TFMEvent e;
 
-			TFMExecutionTask(TFMEvent e, Set<Sensor> sensors) {
-				
+			/**
+			 * Constructor for this task
+			 * 
+			 * @param e
+			 *            The associated TFMEvent
+			 * @param sensors
+			 *            The sensors that should be checked when this update
+			 *            fires
+			 */
+			TFMUpdateTask(TFMEvent e, Set<Sensor> sensors) {
 				this.e = e;
 				this.sensors = sensors;
 			}
 
+			/**
+			 * The code executed whenever a timer with this task fires.
+			 */
 			public void run() {
+
+				// Only update if the engine is running
 				if (state.isRunning()) {
-					Iterator<Sensor> iter = sensors.iterator();
-					while (iter.hasNext()) {
-						iter.next().pull(logic);
+
+					// Request data from each sensor
+					for (Sensor sensor : sensors) {
+						sensor.pull(logic);
 					}
+
+					// Call the special TFMEvent.realUpdate() function, reserved
+					// for these timers
 					e.realUpdate();
 				}
 			}
 		}
 
-		private class TFMStopTask extends TimerTask {
+		/**
+		 * A TimerTask for canceling update timers for TFMEvents with absolute
+		 * windows. Such events' windows will never open again, thus this task
+		 * does not schedule any more timers.
+		 * 
+		 * @author Patrick
+		 * 
+		 */
+		private class TFMAbsoluteStopTask extends TimerTask {
+			
 			Timer timer;
 			private TFMEvent e;
 
-			TFMStopTask(TFMEvent e, Timer timer) {
+			TFMAbsoluteStopTask(TFMEvent e, Timer timer) {
 				this.e = e;
 				this.timer = timer;
 			}
 
+			/**
+			 * The task executed when a timer fires.
+			 */
 			public void run() {
+				// Call realUpdate() one last time. Since we are now outside the
+				// window, this will cause the event's reportFreq to be reset,
+				// and thus cause this event to evaluate to false.
 				e.realUpdate();
+
+				// Cancel the timer. If any update tasks are currently ongoing,
+				// those tasks' realUpdate() calls will also reflect that the
+				// window has expired, so there will be no conflicts.
 				timer.cancel();
 			}
 		}
 
-		private class TFMStartTask extends TimerTask {
+		/**
+		 * A TimerTask for scheduling update Timer
+		 * @author Patrick
+		 *
+		 */
+		private class TFMAbsoluteStartTask extends TimerTask {
 			Set<Sensor> sensors;
 			int evalFreq;
 			Date end;
 			TFMEvent e;
 
-			TFMStartTask(TFMEvent e, Set<Sensor> sensors, int evalFreq, Date end) {
+			TFMAbsoluteStartTask(TFMEvent e, Set<Sensor> sensors, int evalFreq,
+					Date end) {
 				this.sensors = sensors;
 				this.evalFreq = evalFreq;
 				this.end = end;
@@ -512,9 +588,9 @@ class Engine {
 
 			public void run() {
 				Timer t = spawnTimer();
-				t.scheduleAtFixedRate(new TFMExecutionTask(e, sensors), 0,
+				t.scheduleAtFixedRate(new TFMUpdateTask(e, sensors), 0,
 						evalFreq * 1000);
-				spawnTimer().schedule(new TFMStopTask(e, t), end);
+				spawnTimer().schedule(new TFMAbsoluteStopTask(e, t), end);
 			}
 		}
 
@@ -539,7 +615,7 @@ class Engine {
 				Date end = e.getWindow().getRelEnd();
 
 				Timer t = spawnTimer();
-				t.scheduleAtFixedRate(new TFMExecutionTask(e, sensors), 0,
+				t.scheduleAtFixedRate(new TFMUpdateTask(e, sensors), 0,
 						evalFreq * 1000);
 				spawnTimer().schedule(
 						new TFMRelativeStopTask(t, e, sensors, evalFreq), end);
@@ -556,7 +632,7 @@ class Engine {
 
 			TFMRelativeStopTask(Timer t, TFMEvent e, Set<Sensor> sensors,
 					int evalFreq) {
-				
+
 				this.t = t;
 				this.e = e;
 				this.sensors = sensors;
@@ -920,7 +996,7 @@ class Engine {
 	public Condition getCondition(String i) {
 		return state.getCondition(i);
 	}
-	
+
 	private void debug(String s) {
 		System.err.println(s);
 	}

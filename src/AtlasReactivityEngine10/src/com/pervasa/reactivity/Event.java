@@ -346,38 +346,58 @@ class TFMEvent extends EventBase implements Event {
 		return window;
 	}
 
+	/**
+	 * Called when an update is being propagated through the event tree by
+	 * ReceivedData(). We only want TFMEvents's to be updated by the timers that
+	 * are assigned to them. Those timers call the realUpdate() method.
+	 */
 	public void update() {
 		// do nothing
 
-		// This method is called when an update is being propagated through the
-		// event tree by received data.
-
-		// We only want TFM's to be updated by the Timers that are assigned to
-		// them. Those timers call the realUpdate() method.
 	}
 
+	/**
+	 * Called by timers dedicated to updating this TFMEvent. Since the TFMEvent
+	 * is skipped during the updateAll() traversal, the timers are fully
+	 * responsible for keeping this event up-to-date.
+	 */
 	public void realUpdate() {
+
+		// Initialize the return value
 		boolean ret = false;
+
 		if (window.withinWindow()) {
+
+			// Propagate an update() throughout the modifiedEvent subTree
 			modifiedEvent.update();
+
+			// Get the reported status of the modifiedEvent
 			ret = modifiedEvent.evaluate();
+
 			if (ret) {
+				// If the modifiedEvent is reporting true, this TFMEvent must
+				// record the occurrence in its ReportFreq log
 				reportFreq.logOccurrence();
 			}
 		} else {
-			// If we're outside the window, we should reset the log occurrences
+			// If we're outside the window, reset the log occurrences
 			// so that next time we're in, we start from zero
 			reportFreq.reset();
 		}
 
-		System.err.println(this.toString() + " realUpdate "
-				+ reportFreq.isReporting());
+		// Finish this realUpdate() call by actually updating the status of the
+		// TFMEvent, exactly like an update() would have done
 		status.setStatus(reportFreq.isReporting());
 
 	}
 
+	/**
+	 * Called when the sensors that this event tree references need to be
+	 * updated. TFMEvents do not descend into their modifiedEvent's sensors,
+	 * because the scheduler's timers handle the updating of a TFMEvent's
+	 * sensors.
+	 */
 	public Set<Sensor> addSensorsTo(Set<Sensor> s) {
-		modifiedEvent.addSensorsTo(s);
 		return s;
 	}
 
@@ -390,18 +410,16 @@ class Window {
 
 	private String relStart;
 	private String relEnd;
+	
+	enum Type {INFINITE, ABSOLUTE, RELATIVE }
 
-	static final int INFINITE = 0;
-	static final int ABSOLUTE = 1;
-	static final int RELATIVE = 2;
-
-	private int type;
+	private Type type;
 
 	/* Constructors */
 
 	// Constructor for an infinite window (always true)
 	public Window() {
-		this.type = INFINITE;
+		this.type = Type.INFINITE;
 	}
 
 	// Constructor for an absolute window
@@ -424,7 +442,7 @@ class Window {
 		absStart = c1.getTime();
 		absEnd = c2.getTime();
 
-		this.type = ABSOLUTE;
+		this.type = Type.ABSOLUTE;
 
 	}
 
@@ -442,9 +460,9 @@ class Window {
 	// Constructor for a relative window
 	public Window(String time1, String time2) {
 
-			relStart = time1;
-			relEnd = time2;
-		this.type = RELATIVE;
+		relStart = time1;
+		relEnd = time2;
+		this.type = Type.RELATIVE;
 	}
 
 	/* Functionality methods */
@@ -463,19 +481,19 @@ class Window {
 			today.set(today.get(Calendar.YEAR), today.get(Calendar.MONTH),
 					today.get(Calendar.DATE), 0, 0, 0);
 			Date thisMorning = today.getTime();
-			
+
 			Calendar c1 = Calendar.getInstance();
 			c1.setTime(thisMorning);
 			addTime(c1, relStart);
 			Calendar c2 = Calendar.getInstance();
 			c2.setTime(thisMorning);
 			addTime(c2, relEnd);
-			
+
 			Date start = c1.getTime();
 			Date end = c2.getTime();
-			
+
 			ret = start.before(now) && now.before(end);
-			
+
 			break;
 		case ABSOLUTE:
 			// Compare the current time to this window's date/times
@@ -484,29 +502,29 @@ class Window {
 		}
 		return ret;
 	}
-	
+
 	public Date getRelStart() {
 		Date d = calculateTime(relStart);
 		return todayOrTomorrow(d);
 	}
-	
+
 	public Date getRelEnd() {
 		Date d = calculateTime(relEnd);
 		return todayOrTomorrow(d);
 	}
-	
+
 	private Date calculateTime(String hhmmss) {
 		Calendar today = Calendar.getInstance();
-		today.set(today.get(Calendar.YEAR), today.get(Calendar.MONTH),
-				today.get(Calendar.DATE), 0, 0, 0);
+		today.set(today.get(Calendar.YEAR), today.get(Calendar.MONTH), today
+				.get(Calendar.DATE), 0, 0, 0);
 		Date thisMorning = today.getTime();
-		
+
 		Calendar c1 = Calendar.getInstance();
 		c1.setTime(thisMorning);
 		addTime(c1, hhmmss);
 		return c1.getTime();
 	}
-	
+
 	private Date todayOrTomorrow(Date d) {
 		Date now = new Date();
 		if (now.after(calculateTime(relEnd))) {
@@ -518,7 +536,7 @@ class Window {
 		return d;
 	}
 
-	public int returnType() {
+	Type returnType() {
 		return type;
 	}
 
@@ -536,10 +554,10 @@ class Window {
 			break;
 		case RELATIVE:
 			try {
-			SimpleDateFormat fmt = new SimpleDateFormat("HH:mm:ss");
-			Date d1 = fmt.parse(relStart);
-			Date d2 = fmt.parse(relEnd);
-			ret = d1.getTime() - d2.getTime();
+				SimpleDateFormat fmt = new SimpleDateFormat("HH:mm:ss");
+				Date d1 = fmt.parse(relStart);
+				Date d2 = fmt.parse(relEnd);
+				ret = d1.getTime() - d2.getTime();
 			} catch (ParseException e) {
 				System.err.println("Invalid time format");
 			}
@@ -553,7 +571,7 @@ class Window {
 	}
 
 	public boolean isNil() {
-		return type == INFINITE;
+		return type == Type.INFINITE;
 	}
 
 	/*
@@ -596,13 +614,11 @@ class EvalFreq {
 
 	public EvalFreq() {
 		this.type = Type.INF;
-		System.err.println("inf def'd");
 	}
 
 	public EvalFreq(Integer n) {
 		this.secs = n;
 		this.type = Type.NUM;
-		System.err.println("int def'd");
 	}
 
 	/*
@@ -697,7 +713,7 @@ class ReportFreq {
 		}
 		return ret;
 	}
-	
+
 	public String current() {
 		return current + "/" + threshold;
 	}

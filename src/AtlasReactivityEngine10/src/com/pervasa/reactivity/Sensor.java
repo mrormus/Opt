@@ -84,13 +84,14 @@ class Sensor {
 		case DeviceType.HUMIDITY:
 			HumiditySensor d4 = (HumiditySensor) dev;
 			d4.getSensorReading(ac);
-			System.out.println("Subscribed to Humidity Data");
 			break;
 		case DeviceType.TEMP:
 			TemperatureSensor d3 = (TemperatureSensor) dev;
 			d3.getSensorReading(ac);
 			break;
 		}
+		
+		System.out.println("Pull from " + this);
 
 	}
 	
