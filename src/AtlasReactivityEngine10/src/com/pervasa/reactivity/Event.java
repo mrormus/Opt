@@ -529,11 +529,13 @@ class EvalFreq {
 
 	public EvalFreq() {
 		this.type = Type.INF;
+		System.err.println("inf def'd");
 	}
 
 	public EvalFreq(Integer n) {
 		this.secs = n;
-		this.type = Type.INF;
+		this.type = Type.NUM;
+		System.err.println("int def'd");
 	}
 
 	/*
