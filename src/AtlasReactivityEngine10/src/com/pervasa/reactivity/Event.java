@@ -5,6 +5,7 @@ import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.Set;
+import java.util.StringTokenizer;
 
 interface Event {
 
@@ -346,8 +347,19 @@ class TFMEvent extends EventBase implements Event {
 	}
 
 	public void update() {
+		// do nothing
+
+		// This method is called when an update is being propagated through the
+		// event tree by received data.
+
+		// We only want TFM's to be updated by the Timers that are assigned to
+		// them. Those timers call the realUpdate() method.
+	}
+
+	public void realUpdate() {
 		boolean ret = false;
 		if (window.withinWindow()) {
+			modifiedEvent.update();
 			ret = modifiedEvent.evaluate();
 			if (ret) {
 				reportFreq.logOccurrence();
@@ -357,7 +369,10 @@ class TFMEvent extends EventBase implements Event {
 			// so that next time we're in, we start from zero
 			reportFreq.reset();
 		}
-		status.setStatus(ret);
+
+		System.err.println(this.toString() + " realUpdate "
+				+ reportFreq.isReporting());
+		status.setStatus(reportFreq.isReporting());
 
 	}
 
@@ -373,8 +388,8 @@ class Window {
 	private Date absStart;
 	private Date absEnd;
 
-	private Date relStart;
-	private Date relEnd;
+	private String relStart;
+	private String relEnd;
 
 	static final int INFINITE = 0;
 	static final int ABSOLUTE = 1;
@@ -397,28 +412,38 @@ class Window {
 		Date d1 = dateFmt.parse(date1);
 		Date d2 = dateFmt.parse(date2);
 
-		SimpleDateFormat dateFmt2 = new SimpleDateFormat("HH:mm:ss");
-		Date t1 = dateFmt2.parse(time1);
-		Date t2 = dateFmt2.parse(time2);
+		Calendar c1 = Calendar.getInstance();
+		c1.setTime(d1);
 
-		absStart = new Date(d1.getTime() + t1.getTime());
-		absEnd = new Date(d2.getTime() + t2.getTime());
+		Calendar c2 = Calendar.getInstance();
+		c2.setTime(d2);
+
+		addTime(c1, time1);
+		addTime(c2, time2);
+
+		absStart = c1.getTime();
+		absEnd = c2.getTime();
 
 		this.type = ABSOLUTE;
+
+	}
+
+	// Parses a string of the format "HH:mm:ss" and adjusts a calendar
+	// accordingly
+	private void addTime(Calendar c, String hhmmss) {
+
+		StringTokenizer st = new StringTokenizer(hhmmss, ":");
+		c.add(Calendar.HOUR_OF_DAY, Integer.parseInt(st.nextToken()));
+		c.add(Calendar.MINUTE, Integer.parseInt(st.nextToken()));
+		c.add(Calendar.SECOND, Integer.parseInt(st.nextToken()));
 
 	}
 
 	// Constructor for a relative window
 	public Window(String time1, String time2) {
 
-		SimpleDateFormat dateFmt = new SimpleDateFormat("HH:mm:ss");
-		try {
-			relStart = dateFmt.parse(time1);
-			relEnd = dateFmt.parse(time2);
-		} catch (ParseException e) {
-			System.out.println("Failed to parse times");
-		}
-
+			relStart = time1;
+			relEnd = time2;
 		this.type = RELATIVE;
 	}
 
@@ -438,9 +463,19 @@ class Window {
 			today.set(today.get(Calendar.YEAR), today.get(Calendar.MONTH),
 					today.get(Calendar.DATE), 0, 0, 0);
 			Date thisMorning = today.getTime();
-			Date start = new Date(thisMorning.getTime() + relStart.getTime());
-			Date end = new Date(thisMorning.getTime() + relEnd.getTime());
+			
+			Calendar c1 = Calendar.getInstance();
+			c1.setTime(thisMorning);
+			addTime(c1, relStart);
+			Calendar c2 = Calendar.getInstance();
+			c2.setTime(thisMorning);
+			addTime(c2, relEnd);
+			
+			Date start = c1.getTime();
+			Date end = c2.getTime();
+			
 			ret = start.before(now) && now.before(end);
+			
 			break;
 		case ABSOLUTE:
 			// Compare the current time to this window's date/times
@@ -448,6 +483,39 @@ class Window {
 			break;
 		}
 		return ret;
+	}
+	
+	public Date getRelStart() {
+		Date d = calculateTime(relStart);
+		return todayOrTomorrow(d);
+	}
+	
+	public Date getRelEnd() {
+		Date d = calculateTime(relEnd);
+		return todayOrTomorrow(d);
+	}
+	
+	private Date calculateTime(String hhmmss) {
+		Calendar today = Calendar.getInstance();
+		today.set(today.get(Calendar.YEAR), today.get(Calendar.MONTH),
+				today.get(Calendar.DATE), 0, 0, 0);
+		Date thisMorning = today.getTime();
+		
+		Calendar c1 = Calendar.getInstance();
+		c1.setTime(thisMorning);
+		addTime(c1, hhmmss);
+		return c1.getTime();
+	}
+	
+	private Date todayOrTomorrow(Date d) {
+		Date now = new Date();
+		if (now.after(calculateTime(relEnd))) {
+			Calendar c = Calendar.getInstance();
+			c.setTime(d);
+			c.add(Calendar.DATE, 1);
+			d = c.getTime();
+		}
+		return d;
 	}
 
 	public int returnType() {
@@ -467,7 +535,14 @@ class Window {
 			ret = Long.MAX_VALUE;
 			break;
 		case RELATIVE:
-			ret = relEnd.getTime() - relStart.getTime();
+			try {
+			SimpleDateFormat fmt = new SimpleDateFormat("HH:mm:ss");
+			Date d1 = fmt.parse(relStart);
+			Date d2 = fmt.parse(relEnd);
+			ret = d1.getTime() - d2.getTime();
+			} catch (ParseException e) {
+				System.err.println("Invalid time format");
+			}
 			break;
 		case ABSOLUTE:
 			ret = absEnd.getTime() - absEnd.getTime();
@@ -506,14 +581,6 @@ class Window {
 
 	public Date getAbsEnd() {
 		return absEnd;
-	}
-
-	public Date getRelStart() {
-		return relStart;
-	}
-
-	public Date getRelEnd() {
-		return relEnd;
 	}
 
 }
@@ -625,10 +692,14 @@ class ReportFreq {
 			ret = Long.toString(threshold);
 			break;
 		case PERCENT:
-			ret = Integer.toBinaryString(percent) + "%";
+			ret = Integer.toString(percent) + "%";
 			break;
 		}
 		return ret;
+	}
+	
+	public String current() {
+		return current + "/" + threshold;
 	}
 
 }

@@ -48,7 +48,7 @@ public class Activator implements BundleActivator, ServiceListener {
     	
     	// instantiate the application
         core = new Core();         
-        System.out.println("*** Starting Kit Sample Application ***");
+        System.out.println("*** Starting Reactivity Engine ***");
         
         // register to listen for other OSGi services as they come online, change, or go offline
         context.addServiceListener(this, "(objectClass="+ AtlasService.class.getName() + ")");
@@ -61,7 +61,7 @@ public class Activator implements BundleActivator, ServiceListener {
 	}
     
     public void stop(BundleContext context) throws Exception {
-    	System.out.println("*** Stopping Kit Sample Application ***");
+    	System.out.println("*** Stopping Reactivity Engine ***");
     	// Free the memory allocated to the application. It doesn't need to be
     	//   allocated while the service is unavailable, but it wouldn't be
     	//   automatically cleaned by the Java garbage collector since this

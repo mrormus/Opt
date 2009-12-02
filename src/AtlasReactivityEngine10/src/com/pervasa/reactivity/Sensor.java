@@ -68,6 +68,32 @@ class Sensor {
 		}
 	}
 	
+
+	void pull(AtlasClient ac) {
+
+		switch (deviceType) {
+
+		case DeviceType.CONTACT:
+			DigitalContactSensor d2 = (DigitalContactSensor) dev;
+			d2.getContactReading(ac);
+			break;
+		case DeviceType.PRESSURE:
+			InterlinkPressureSensor d = (InterlinkPressureSensor) dev;
+			d.getPressureReading(ac);
+			break;
+		case DeviceType.HUMIDITY:
+			HumiditySensor d4 = (HumiditySensor) dev;
+			d4.getSensorReading(ac);
+			System.out.println("Subscribed to Humidity Data");
+			break;
+		case DeviceType.TEMP:
+			TemperatureSensor d3 = (TemperatureSensor) dev;
+			d3.getSensorReading(ac);
+			break;
+		}
+
+	}
+	
 	public void unsubscribe(AtlasClient ac) {
 		switch (deviceType) {
 		case DeviceType.PRESSURE:

@@ -198,7 +198,7 @@ event ::=
 		if (i == null) {
 			// do nothing
 		} else {
-			RESULT = new TFMEvent(i,w,e,n);
+			RESULT = parser.e.createTFMEvent(i,w,e,n);
 		}
 	:}
 	| IDENTIFIER:i

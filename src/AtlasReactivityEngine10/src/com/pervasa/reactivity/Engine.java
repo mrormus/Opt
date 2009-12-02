@@ -3,10 +3,9 @@ package com.pervasa.reactivity;
 import java.io.File;
 
 import java.io.FileNotFoundException;
-import java.io.IOException;
 import java.io.StringReader;
-import java.io.Writer;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -20,6 +19,7 @@ import java.util.TimerTask;
 import java.util.Date;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 import org.osgi.framework.ServiceReference;
 import org.sensorplatform.actuators.servo.hs322.HS322Servo;
@@ -36,8 +36,8 @@ class Engine {
 	private GUI gui;
 
 	Logic logic = new Logic();
-	Scheduler scheduler = new Scheduler();
 	State state = new State();
+	Scheduler scheduler = new Scheduler();
 	int counter = 0;
 
 	void init(GUI gui) {
@@ -66,6 +66,7 @@ class Engine {
 
 	void close() {
 		state.unsubscribe();
+		scheduler.close();
 	}
 
 	enum StateType {
@@ -197,7 +198,7 @@ class Engine {
 		// the Reactive Engine)
 		// to bind with attached Atlas devices.
 		public void addDevice(ServiceReference sref, AtlasService dev) {
-			
+
 			if (dev instanceof HS322Servo) {
 
 				// Set references to the Servo sensor emulator
@@ -211,8 +212,8 @@ class Engine {
 				// Put actuator in a ServoMap
 				servoMap.put(nodeId, actuatorServo);
 
-			} else { 
-				
+			} else {
+
 				int sType = 0;
 				if (dev instanceof InterlinkPressureSensor) {
 					sType = DeviceType.PRESSURE;
@@ -223,12 +224,13 @@ class Engine {
 				} else if (dev instanceof TemperatureSensor) {
 					sType = DeviceType.TEMP;
 				}
-				
+
 				String nodeId = sref.getProperty("Node-Id").toString();
-				
-				Sensor sensor = new Sensor(nodeId, sType, sref, dev, Sensor.NULL);
+
+				Sensor sensor = new Sensor(nodeId, sType, sref, dev,
+						Sensor.NULL);
 				sensorMap.put(nodeId, sensor);
-			}				
+			}
 
 		}
 
@@ -348,37 +350,13 @@ class Engine {
 
 		// Subscribes to the appropriate sensor.
 		void subscribe(String nodeID) {
-			
+
 			sensorMap.get(nodeID).subscribe(logic);
 
 		}
 
-		void pull(int sType) {
-
-			switch (sType) {
-
-			case DeviceType.CONTACT:
-				sensorContact.getContactReading(new Logic());
-				System.out.println("Subscribed to Contact Data");
-				break;
-			case DeviceType.PRESSURE:
-				sensorPressure.getPressureReading(new Logic());
-				System.out.println("Subscribed to Pressure Data");
-				break;
-			case DeviceType.HUMIDITY:
-				sensorHumid.getSensorReading(new Logic());
-				System.out.println("Subscribed to Humidity Data");
-				break;
-			case DeviceType.TEMP:
-				sensorTemp.getSensorReading(new Logic());
-				System.out.println("Subscribed to Temperature Data");
-				break;
-			}
-
-		}
-
 		public void unsubscribe() {
-			
+
 			for (Sensor sensor : sensorMap.values()) {
 				sensor.unsubscribe(logic);
 			}
@@ -386,80 +364,81 @@ class Engine {
 
 	}
 
+	enum Type {
+		START, STOPREL, STOP
+	}
+
 	private class Scheduler {
 
-		private Map<Timer, TFMEvent> executionTimers;
-
-		// private Map<TFMEvent, Timer> managementTimers;
+		private ConcurrentLinkedQueue<Timer> spawnedTimers;
 
 		/* Initialization */
 		Scheduler() {
-			executionTimers = new HashMap<Timer, TFMEvent>();
-			// managementTimers = new HashMap<TFMEvent, Timer>();
+
+			spawnedTimers = new ConcurrentLinkedQueue<Timer>();
 		}
 
 		/*
-		 * Called when the time window of a TFM event opens.
+		 * Creates a new Timer and adds its reference to the spawnedTimers table
+		 */
+		private Timer spawnTimer() {
+			Timer t = new Timer(true);
+			spawnedTimers.add(t);
+			return t;
+		}
+
+		/*
+		 * Called when a TFM event is created.
 		 */
 		void add(TFMEvent e) {
+
+			System.err.println("adding tfm");
 
 			try {
 				int evalFreq = e.getEvalFreq().getDuration();
 				Window w = e.getWindow();
 				int wType = w.returnType();
+
+				// Today
 				Date now = new Date();
 
-				Timer t1 = new Timer(); // Timer for executing event when window
-				// is open
-
-				Date absStart = w.getAbsStart();
-				Date absEnd = w.getAbsEnd();
-				Date relEnd = w.getRelEnd();
-				Date relStart = w.getRelStart();
+				// Get sensors from the event
+				Set<Sensor> sensors = getSensors(e);
 
 				switch (wType) {
 
 				case Window.ABSOLUTE:
-					if (e.getWindow().withinWindow()) {
-						// Pull data every evalFreq seconds
-						t1.scheduleAtFixedRate(new PullData(e), 0,
-								evalFreq * 1000);
-						// cancel t1 at absEnd
-						new Timer().schedule(new PullData(t1, false), absEnd);
-						/* FIXME: absEnd should be absEnd of window */
-						// store in case it ever needs to be reinstiated
-						executionTimers.put(t1, e);
-					} else {
-						// Out of absolute window
-						// Check if currentTime is before startTime
-						if (now.before(absStart)) {
-							// Then it will open sometime in future, otherwise
-							// it will never open
+					if (now.before(w.getRelEnd())) {
+						// Then it will open sometime in future
+						// or it is currently in the window
 
-							// Schedule it to start using t2 if it will open
-							// sometime in future
-							new Timer().schedule(new PullData(t1, true,
-									evalFreq), absStart);
-							new Timer().schedule(new PullData(t1, false),
-									absEnd);
-						}
-					}
-				case Window.RELATIVE:
-					if (e.getWindow().withinWindow()) {
-						t1.scheduleAtFixedRate(new PullData(e), 0,
-								evalFreq * 1000);
-						new Timer().schedule(new PullData(t1, false), relEnd);
-						/* FIXME: relEnd should be relEnd of window */
-						executionTimers.put(t1, e);
+						// Schedule it to start using t2
+						// (a Timer with a passed start time will start
+						// immediately, so if we are within the window, we're
+						// fine
+						spawnTimer().schedule(
+						// The StartTask schedules its own StopTask
+								new TFMStartTask(e, sensors, evalFreq, w
+										.getAbsEnd()), w.getAbsStart());
+
 					} else {
-						executionTimers.put(t1, e);
-						new Timer().schedule(new PullData(t1, true, evalFreq),
-								relStart);
+						// The window has passed. This event will never fire.
+						// Do nothing.
 					}
+
+					break;
+
+				case Window.RELATIVE:
+					spawnTimer().schedule(
+					// The StartTask schedules its own StopTask
+							new TFMRelativeStartTask(e, sensors, evalFreq), e.getWindow().getRelStart());
+					break;
+
 				case Window.INFINITE:
 					// Window never closes, no need for t2
-					t1.scheduleAtFixedRate(new PullData(e), 0, evalFreq * 1000);
-					executionTimers.put(t1, e);
+					spawnTimer().scheduleAtFixedRate(
+							new TFMExecutionTask(e, sensors), 0,
+							evalFreq * 1000);
 				}
 
 			} catch (Exception exn) {
@@ -470,83 +449,131 @@ class Engine {
 
 		}
 
-		/*
-		 * Called when the time window of a TFM event closes.
-		 */
-		void remove(TFMEvent e) {
-			// Timer t = timers.get(e);
-			// t.cancel();
-			// timers.remove(e);
+		void close() {
+			for (Timer t : spawnedTimers) {
+				t.cancel();
+			}
 		}
 
-		private class PullData extends TimerTask {
+		Set<Sensor> getSensors(Event e) {
+			Set<Sensor> s = new HashSet<Sensor>();
+			e.addSensorsTo(s);
+			return s;
+		}
 
-			TFMEvent e;
-			Timer t;
-			boolean activityFlag;
+		private class TFMExecutionTask extends TimerTask {
+
+			private Set<Sensor> sensors;
+			private TFMEvent e;
+
+			TFMExecutionTask(TFMEvent e, Set<Sensor> sensors) {
+				
+				this.e = e;
+				this.sensors = sensors;
+			}
+
+			public void run() {
+				if (state.isRunning()) {
+					Iterator<Sensor> iter = sensors.iterator();
+					while (iter.hasNext()) {
+						iter.next().pull(logic);
+					}
+					e.realUpdate();
+				}
+			}
+		}
+
+		private class TFMStopTask extends TimerTask {
+			Timer timer;
+			private TFMEvent e;
+
+			TFMStopTask(TFMEvent e, Timer timer) {
+				this.e = e;
+				this.timer = timer;
+			}
+
+			public void run() {
+				e.realUpdate();
+				timer.cancel();
+			}
+		}
+
+		private class TFMStartTask extends TimerTask {
+			Set<Sensor> sensors;
 			int evalFreq;
+			Date end;
+			TFMEvent e;
 
-			PullData(TFMEvent e) {
+			TFMStartTask(TFMEvent e, Set<Sensor> sensors, int evalFreq, Date end) {
+				this.sensors = sensors;
+				this.evalFreq = evalFreq;
+				this.end = end;
+			}
+
+			public void run() {
+				Timer t = spawnTimer();
+				t.scheduleAtFixedRate(new TFMExecutionTask(e, sensors), 0,
+						evalFreq * 1000);
+				spawnTimer().schedule(new TFMStopTask(e, t), end);
+			}
+		}
+
+		private class TFMRelativeStartTask extends TimerTask {
+
+			Set<Sensor> sensors;
+			int evalFreq;
+			TFMEvent e;
+
+			TFMRelativeStartTask(TFMEvent e, Set<Sensor> sensors, int evalFreq) {
+				this.sensors = sensors;
+				this.evalFreq = evalFreq;
 
 				this.e = e;
 			}
 
-			PullData(Timer t, boolean activityFlag) {
-
-				this.t = t;
-				this.activityFlag = activityFlag;
-			}
-
-			PullData(Timer t, boolean activityFlag, int evalFreq) {
-
-				this.t = t;
-				this.activityFlag = activityFlag;
-				this.evalFreq = evalFreq;
-			}
-
-			@Override
+			/*
+			 * Action taken when this timer fires.
+			 */
 			public void run() {
 
-				if (e != null) {
+				Date end = e.getWindow().getRelEnd();
 
-					// Active window, pull data.
-
-					Event me = e.getModifiedEvent();
-
-					System.out.println("Pull data at:"
-							+ System.currentTimeMillis());
-
-					// findSensors(me);
-				}
-
-				if (t != null) {
-
-					// Management timer, check if t is to be rescheduled or
-					// canceled
-
-					if (activityFlag) {
-						t.scheduleAtFixedRate(new PullData(executionTimers
-								.get(t)), 0, evalFreq * 1000);
-					}
-
-					else {
-						// Ending an absolute event
-						t.cancel();
-					}
-
-				}
-			}
-
-			void findSensors(Event e) {
-				Set<Sensor> s = new HashSet<Sensor>();
-				e.addSensorsTo(s);
-				Iterator<Sensor> iter = s.iterator();
-				while (iter.hasNext()) {
-					state.pull(iter.next().getType());
-				}
+				Timer t = spawnTimer();
+				t.scheduleAtFixedRate(new TFMExecutionTask(e, sensors), 0,
+						evalFreq * 1000);
+				spawnTimer().schedule(
+						new TFMRelativeStopTask(t, e, sensors, evalFreq), end);
 
 			}
 
+		}
+
+		private class TFMRelativeStopTask extends TimerTask {
+			Timer t;
+			Set<Sensor> sensors;
+			int evalFreq;
+			TFMEvent e;
+
+			TFMRelativeStopTask(Timer t, TFMEvent e, Set<Sensor> sensors,
+					int evalFreq) {
+				
+				this.t = t;
+				this.e = e;
+				this.sensors = sensors;
+				this.evalFreq = evalFreq;
+
+			}
+
+			public void run() {
+				t.cancel();
+				e.realUpdate();
+
+				Date start = e.getWindow().getRelStart();
+
+				spawnTimer().schedule(
+				// The StartTask schedules its own StopTask
+						new TFMRelativeStartTask(e, sensors, evalFreq), start);
+			}
 		}
 
 	}
@@ -555,7 +582,7 @@ class Engine {
 
 		public void ReceivedData(String data, Properties props) {
 			counter++;
-			System.out.println("Received data lulz." + counter);
+			System.out.println("Received data. " + counter);
 
 			// Update sensor reading value
 			String nodeId = props.getProperty("Node-Id");
@@ -595,15 +622,22 @@ class Engine {
 						state.subscribe(nodeID);
 
 					} else {
-						/* CompositeEvent or TFMEvent */
-						// Find all the sensors that the event uses
-						Set<Sensor> s = new HashSet<Sensor>();
-						r.getEvent().addSensorsTo(s);
+						if (r.getEvent().isTFM()) {
+							/* TFM Event */
+							// These subscriptions are handled by the Scheduler
+							// So we can safely ignore them
 
-						// Subscribe to each of them
-						Iterator<Sensor> iter = s.iterator();
-						while (iter.hasNext()) {
-							iter.next().subscribe(logic);
+						} else {
+							/* Composite event */
+							// Find all the sensors that the event uses
+							Set<Sensor> s = new HashSet<Sensor>();
+							r.getEvent().addSensorsTo(s);
+
+							// Subscribe to each of them
+							Iterator<Sensor> iter = s.iterator();
+							while (iter.hasNext()) {
+								iter.next().subscribe(logic);
+							}
 						}
 
 					}
@@ -671,25 +705,11 @@ class Engine {
 
 	void defineEvent(String name, Event e) {
 
-		// Debugging snippet to see the difference between expression
-		// and expansion
-
-		// System.err.println("Expression is " + expression);
-		// System.err.println("Expansion is " + expansion);
-
-		/*
-		 * FIXME: Debug snippet shows expression and expansion to be the same. ?
-		 */
-
 		if (!state.isRunning()) {
 			if (!state.eventExists(name)) {
 				e.setName(name);
 				state.add(name, e);
 
-				if (e.isTFM()) {
-					// Cast is safe, since we just checked that event is TFM
-					scheduler.add((TFMEvent) e);
-				}
 			} else {
 				error("Event '" + name + "' already exists");
 			}
@@ -715,17 +735,17 @@ class Engine {
 		if (!state.run) {
 			if (!state.actionExists(name)) {
 				Action finalAct = null;
-				if (a.size()==1) {
+				if (a.size() == 1) {
 					for (Action act : a) {
 						finalAct = act;
 					}
 				} else {
 					finalAct = new CompositeAction(a);
-					
+
 				}
 				finalAct.setName(name);
 				state.add(name, finalAct);
-				
+
 			} else {
 				error("Action '" + name + "' already exists");
 			}
@@ -840,6 +860,13 @@ class Engine {
 		return createEvent(nodeID, value, value);
 	}
 
+	TFMEvent createTFMEvent(Event modifiedEvent, Window w, EvalFreq ef,
+			Integer n) {
+		TFMEvent e = new TFMEvent(modifiedEvent, w, ef, n);
+		scheduler.add(e);
+		return e;
+	}
+
 	/*
 	 * Construct a new Condition
 	 */
@@ -892,5 +919,9 @@ class Engine {
 
 	public Condition getCondition(String i) {
 		return state.getCondition(i);
+	}
+	
+	private void debug(String s) {
+		System.err.println(s);
 	}
 }
