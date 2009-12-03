@@ -3,35 +3,42 @@ package com.pervasa.reactivity;
 public class Condition {
 	boolean value;
 	String name;
-	
-	public Condition (String name, String value){
+
+	public Condition(String name, String value) {
 		this.name = name;
 		this.value = Boolean.parseBoolean(value);
 	}
-	public Condition (String name, boolean value){
+
+	public Condition(String name, boolean value) {
 		this.name = name;
 		this.value = value;
 	}
+
 	public Condition(boolean b) {
 		this.value = b;
 	}
-	public boolean getValue(){
+
+	public boolean getValue() {
 		return value;
 	}
+
 	public void setName(String s) {
 		this.name = s;
 	}
+
 	public String getName() {
-		return name;
+		if (name != null) {
+			return name;
+		} else {
+			return this.toString();
+		}
 	}
+
 	void set(boolean b) {
 		this.value = b;
 	}
-	public String toString(){
-		if (name != null) {
-		return ("" + value);
-		} else {
-			return "" + value;
-		}
+
+	public String toString() {
+		return "" + value;
 	}
 }

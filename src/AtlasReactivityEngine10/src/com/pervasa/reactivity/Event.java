@@ -31,10 +31,6 @@ interface Event {
 
 }
 
-enum EventType {
-	SIMPLE, COMPOSITE, TFM
-}
-
 class EventBase {
 
 	private String name;
@@ -44,13 +40,11 @@ class EventBase {
 	}
 
 	public String getName() {
-		String ret = "";
 		if (name != null) {
-			ret = name;
+			return name;
 		} else {
-			ret = toString();
+			return toString();
 		}
-		return ret;
 	}
 
 	boolean isSimple() {
@@ -124,13 +118,11 @@ class SimpleEvent extends EventBase implements Event {
 	}
 
 	public String toString() {
-		String ret = "";
 		if (min == max) {
-			ret = sensor.getNodeID() + "(" + min + ")";
+			return sensor.getNodeID() + "(" + min + ")";
 		} else {
-			ret = sensor.getNodeID() + "[" + min + "," + max + "]";
+			return sensor.getNodeID() + "[" + min + ", " + max + "]";
 		}
-		return ret;
 	}
 
 	public String getSensorNodeID() {
@@ -278,7 +270,7 @@ class TFMEvent extends EventBase implements Event {
 
 	/* Constructors */
 
-	// Define a Time-Frequency-Modulated event: <W,Fe,Fr>(e)
+	// Define a Time-Frequency-Modified event: <W,Fe,Fr>(e)
 	TFMEvent(Event modifiedEvent, Window w, EvalFreq ef, Integer n) {
 
 		this.modifiedEvent = modifiedEvent;

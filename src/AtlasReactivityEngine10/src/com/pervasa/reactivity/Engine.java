@@ -354,13 +354,7 @@ class Engine {
 		 * @return
 		 */
 		private String getSummary(String title, Map map) {
-			// FIXME This output is quite ugly. We should go through the various
-			// objects' toString() methods and fix them so that they display the
-			// most relevant information. That is, it displays the identifier if
-			// it's part of a composite event, and the raw device data if it's
-			// an independent event. (Must take into consideration ad-hoc
-			// defined objects, ie. some objects, even though they are
-			// independent, have no identifier, eg. name field == null)
+		
 			StringBuilder buf = new StringBuilder();
 			buf.append("---" + title + "---" + "\n");
 			for (Entry<String, Object> e : (Set<Entry>) map.entrySet()) {
