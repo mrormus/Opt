@@ -2,7 +2,10 @@ package com.pervasa.reactivity;
 
 import java.io.File;
 
+import java.io.BufferedWriter;
 import java.io.FileNotFoundException;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -826,12 +829,12 @@ class Engine {
 		}
 
 		public void ReceivedData(String data, Properties props) {
-			counter++;
-			System.out.println("Received data. " + counter);
+
 
 			// Get the local Sensor object
 			String nodeId = props.getProperty("Node-Id");
 			Sensor sensor = state.getSensor(nodeId);
+			logFile(nodeId);
 
 			// Update sensor reading value
 			sensor.update(Integer.parseInt(data));
@@ -850,6 +853,19 @@ class Engine {
 			}
 
 		}
+		
+		void logFile (String nodeId) {
+			try {
+			BufferedWriter out = new BufferedWriter(new FileWriter("logFile.txt", true));
+			counter++;
+			Long currentTime = System.currentTimeMillis();
+			String newline = System.getProperty("line.separator");
+			out.write(counter + ":" + currentTime.toString() + ":" + nodeId + newline);
+			out.close();
+			} catch (IOException e) {
+			System.out.println("Failed to create log file");
+			}
+			}
 
 		/**
 		 * Called when the RE enters the RUN mode or when the SET command is

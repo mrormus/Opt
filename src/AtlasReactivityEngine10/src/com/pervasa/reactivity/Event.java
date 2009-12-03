@@ -9,6 +9,12 @@ import java.util.Set;
 import java.util.StringTokenizer;
 import java.util.Timer;
 
+/**
+ * Common methods that events of all types share
+ * 
+ * @author Patrick
+ * 
+ */
 interface Event {
 
 	public void setName(String name);
@@ -31,6 +37,13 @@ interface Event {
 
 }
 
+/**
+ * Super class off of which other Event subclasses are based. Contains common
+ * methods like getName.
+ * 
+ * @author Patrick
+ * 
+ */
 class EventBase {
 
 	private String name;
@@ -57,6 +70,13 @@ class EventBase {
 
 }
 
+/**
+ * Represents the status of an event. Maintains the truth value and the last
+ * time modified
+ * 
+ * @author Patrick
+ * 
+ */
 class EventStatus {
 
 	private boolean status = false;
@@ -78,6 +98,13 @@ class EventStatus {
 	}
 }
 
+/**
+ * The leaf nodes of the event tree. Basically a wrapper for a sensor, with a
+ * filter for a specific range of values. Is associated with exactly one sensor
+ * 
+ * @author Patrick
+ * 
+ */
 class SimpleEvent extends EventBase implements Event {
 
 	// Fields for a basic event
@@ -104,18 +131,7 @@ class SimpleEvent extends EventBase implements Event {
 
 	/* Methods */
 
-	public void setName(String name) {
-		super.setName(name);
-	}
-
-	public boolean isTFM() {
-		return super.isTFM();
-	}
-
-	@Override
-	public boolean isSimple() {
-		return true;
-	}
+	/* Accessors */
 
 	public String toString() {
 		if (min == max) {
@@ -133,8 +149,46 @@ class SimpleEvent extends EventBase implements Event {
 		return sensor.getType();
 	}
 
-	// Using the current reading of the referenced sensor,
-	// update the status of this simple event
+	public long getTimeLastChanged() {
+		return status.getTimeLastChanged();
+	}
+
+	/**
+	 * Given a pre-constructed set, adds the sensors of this event subtree to
+	 * the set
+	 */
+	public Set<Sensor> addSensorsTo(Set<Sensor> s) {
+		s.add(sensor);
+		return s;
+	}
+
+	public boolean isTFM() {
+		return super.isTFM();
+	}
+
+	// Overrides EventBase's isSimple() method
+	@Override
+	public boolean isSimple() {
+		return true;
+	}
+
+	// Called by rules when evaluating the rule and by update() when propagating
+	// an update throughout the event tree
+	public boolean evaluate() {
+		return status.getStatus();
+	}
+
+	/* Mutators */
+
+	public void setName(String name) {
+		super.setName(name);
+	}
+
+	/**
+	 * The terminal update() operation for an event tree update() call. Using
+	 * the current reading of the referenced sensor, update the status of this
+	 * simple event.
+	 */
 	public void update() {
 		// Using the referenced sensor reading, update the status if it is
 		// within range
@@ -142,20 +196,16 @@ class SimpleEvent extends EventBase implements Event {
 
 	}
 
-	public boolean evaluate() {
-		return status.getStatus();
-	}
-
-	public long getTimeLastChanged() {
-		return status.getTimeLastChanged();
-	}
-
-	public Set<Sensor> addSensorsTo(Set<Sensor> s) {
-		s.add(sensor);
-		return s;
-	}
 }
 
+/**
+ * Inner nodes of an event tree. References exactly two events. Evaluates to
+ * true or false depending on this event's operator (can be PLUS for OR, or STAR
+ * for AND, or SECS for time difference) and the evaluation of its subtrees.
+ * 
+ * @author Patrick
+ * 
+ */
 class CompositeEvent extends EventBase implements Event {
 
 	enum Operator {
@@ -170,6 +220,7 @@ class CompositeEvent extends EventBase implements Event {
 
 	/* Constructors */
 
+	// Should never be called with Operator.PLUS
 	CompositeEvent(Event left, Operator op, Event right) {
 		this.left = left;
 		this.op = op;
@@ -183,25 +234,7 @@ class CompositeEvent extends EventBase implements Event {
 
 	/* Methods */
 
-	public boolean isSimple() {
-		return super.isSimple();
-	}
-
-	public boolean isTFM() {
-		return super.isTFM();
-	}
-
-	public void setName(String name) {
-		super.setName(name);
-	}
-
-	public long getTimeLastChanged() {
-		return status.getTimeLastChanged();
-	}
-
-	public boolean evaluate() {
-		return status.getStatus();
-	}
+	/* Accessors */
 
 	public String toString() {
 
@@ -225,6 +258,41 @@ class CompositeEvent extends EventBase implements Event {
 		return ret;
 	}
 
+	public long getTimeLastChanged() {
+		return status.getTimeLastChanged();
+	}
+
+	/**
+	 * Given a pre-constructed set, adds the sensors of this event subtree to
+	 * the set
+	 */
+	public Set<Sensor> addSensorsTo(Set<Sensor> s) {
+		left.addSensorsTo(s);
+		right.addSensorsTo(s);
+		return s;
+	}
+
+	public boolean isSimple() {
+		return super.isSimple();
+	}
+
+	public boolean isTFM() {
+		return super.isTFM();
+	}
+
+	public boolean evaluate() {
+		return status.getStatus();
+	}
+
+	/* Mutators */
+
+	public void setName(String name) {
+		super.setName(name);
+	}
+
+	/**
+	 * Propagates an update() throughout the event tree
+	 */
 	public void update() {
 
 		// Update the children
@@ -249,28 +317,33 @@ class CompositeEvent extends EventBase implements Event {
 		}
 	}
 
-	public Set<Sensor> addSensorsTo(Set<Sensor> s) {
-		left.addSensorsTo(s);
-		right.addSensorsTo(s);
-		return s;
-	}
-
 }
 
 class TFMEvent extends EventBase implements Event {
 
-	// Fields for TFM events
 	private EventStatus status = new EventStatus();
-	private Event modifiedEvent;
+
+	// Abstract representations of the components of a TFMEvent
 	private Window window;
 	private EvalFreq evalFreq;
 	private ReportFreq reportFreq;
+
+	// The update-timer responsible for managing this TFMEvent
 	private Timer timer;
+
+	// The base event which this TFMEvent is modfying...
+	private Event modifiedEvent;
+
+	// ... and the sensors associated with that event
 	private HashSet<Sensor> sensors;
 
 	/* Constructors */
 
-	// Define a Time-Frequency-Modified event: <W,Fe,Fr>(e)
+	/**
+	 * Define a Time-Frequency-Modified event: <W,Fe,Fr>(e)
+	 * 
+	 * Called by the parser, which constructs the window and evalFreq objects.
+	 */
 	TFMEvent(Event modifiedEvent, Window w, EvalFreq ef, Integer n) {
 
 		this.modifiedEvent = modifiedEvent;
@@ -286,7 +359,7 @@ class TFMEvent extends EventBase implements Event {
 			rf = new ReportFreq(n, ef, w);
 		}
 		this.reportFreq = rf;
-		
+
 		this.sensors = new HashSet<Sensor>();
 		this.modifiedEvent.addSensorsTo(this.sensors);
 
@@ -294,34 +367,7 @@ class TFMEvent extends EventBase implements Event {
 
 	/* Methods */
 
-	public boolean isSimple() {
-		return super.isSimple();
-	}
-
-	@Override
-	public boolean isTFM() {
-		return true;
-	}
-
-	public void setName(String name) {
-		super.setName(name);
-	}
-
-	public void setTimer(Timer timer) {
-		this.timer = timer;
-	}
-
-	public long getTimeLastChanged() {
-		return status.getTimeLastChanged();
-	}
-	
-	public HashSet<Sensor> getSensors() {
-		return this.sensors;
-	}
-
-	public boolean evaluate() {
-		return status.getStatus();
-	}
+	/* Accessors */
 
 	// toString method for pretty printing
 	public String toString() {
@@ -341,6 +387,40 @@ class TFMEvent extends EventBase implements Event {
 		return ret;
 	}
 
+	public long getTimeLastChanged() {
+		return status.getTimeLastChanged();
+	}
+
+	/**
+	 * Given a pre-constructed set, adds the sensors of this event subtree to
+	 * the set
+	 * 
+	 * Special note for TFMEvents: TFMEvents do not descend into their
+	 * modifiedEvent's sensors, because the scheduler's timers handle the
+	 * updating of a TFMEvent's sensors.
+	 */
+	public Set<Sensor> addSensorsTo(Set<Sensor> s) {
+		return s;
+	}
+
+	public HashSet<Sensor> getSensors() {
+		return this.sensors;
+	}
+
+	public boolean isSimple() {
+		return super.isSimple();
+	}
+
+	// Overrides EventBase's isTFM() method
+	@Override
+	public boolean isTFM() {
+		return true;
+	}
+
+	public boolean evaluate() {
+		return status.getStatus();
+	}
+
 	public EvalFreq getEvalFreq() {
 		return evalFreq;
 	}
@@ -351,6 +431,16 @@ class TFMEvent extends EventBase implements Event {
 
 	public Window getWindow() {
 		return window;
+	}
+
+	/* Mutators */
+
+	public void setName(String name) {
+		super.setName(name);
+	}
+
+	public void setTimer(Timer timer) {
+		this.timer = timer;
 	}
 
 	/**
@@ -404,16 +494,6 @@ class TFMEvent extends EventBase implements Event {
 
 	}
 
-	/**
-	 * Called when the sensors that this event tree references need to be
-	 * updated. TFMEvents do not descend into their modifiedEvent's sensors,
-	 * because the scheduler's timers handle the updating of a TFMEvent's
-	 * sensors.
-	 */
-	public Set<Sensor> addSensorsTo(Set<Sensor> s) {
-		return s;
-	}
-
 }
 
 class Window {
@@ -440,6 +520,8 @@ class Window {
 	// Constructor for an absolute window
 	public Window(String date1, String time1, String date2, String time2)
 			throws Exception {
+
+		// Date math is incredibly annoying
 
 		SimpleDateFormat dateFmt = new SimpleDateFormat("MM/dd/yy");
 		Date d1 = dateFmt.parse(date1);
@@ -468,7 +550,6 @@ class Window {
 		c.add(Calendar.HOUR_OF_DAY, Integer.parseInt(st.nextToken()));
 		c.add(Calendar.MINUTE, Integer.parseInt(st.nextToken()));
 		c.add(Calendar.SECOND, Integer.parseInt(st.nextToken()));
-
 	}
 
 	// Constructor for a relative window
@@ -479,7 +560,7 @@ class Window {
 		this.type = Type.RELATIVE;
 	}
 
-	/* Functionality methods */
+	/* Accessors */
 
 	public boolean withinWindow() {
 		boolean ret = false;
@@ -527,6 +608,8 @@ class Window {
 		return todayOrTomorrow(d);
 	}
 
+	// Returns a Date object, with the time set to today, plus the amount of
+	// time indicated by the hhmmss string
 	private Date calculateTime(String hhmmss) {
 
 		Calendar today = Calendar.getInstance();
@@ -536,6 +619,9 @@ class Window {
 		return today.getTime();
 	}
 
+	// If we're outside of this window, add a day to the date argument.
+	// Otherwise, leave it alone. This method is called when returning a
+	// relative window's start/end times
 	private Date todayOrTomorrow(Date d) {
 		Date now = new Date();
 		if (!now.before(calculateTime(relEnd))) {
@@ -686,31 +772,9 @@ class ReportFreq {
 	}
 
 	/* Methods */
-
-	/*
-	 * Called when the window closes. Resets the number of occurrences reported
-	 * for this TFM event.
-	 */
-	void reset() {
-		current = 0;
-	}
-
-	/*
-	 * Called whenever the modifiedEvent evaluates to true. Increments the
-	 * counter of reported occurrences.
-	 */
-	void logOccurrence() {
-		current++;
-	}
-
-	/*
-	 * Returns true if this TFM event has logged occurrences greater than or
-	 * equal to its given threshold
-	 */
-	boolean isReporting() {
-		return current >= threshold;
-	}
-
+	
+	/* Accessors */
+	
 	public String toString() {
 		String ret = "";
 		switch (type) {
@@ -726,9 +790,35 @@ class ReportFreq {
 		}
 		return ret;
 	}
+	
+	/*
+	 * Returns true if this TFM event has logged occurrences greater than or
+	 * equal to its given threshold
+	 */
+	boolean isReporting() {
+		return current >= threshold;
+	}
 
 	public String current() {
 		return current + "/" + threshold;
+	}
+	
+	/* Mutators */
+
+	/*
+	 * Called when the window closes. Resets the number of occurrences reported
+	 * for this TFM event.
+	 */
+	void reset() {
+		current = 0;
+	}
+
+	/*
+	 * Called whenever the modifiedEvent evaluates to true. Increments the
+	 * counter of reported occurrences.
+	 */
+	void logOccurrence() {
+		current++;
 	}
 
 }
