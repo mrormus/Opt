@@ -9,6 +9,7 @@ interface Action {
 	public String toString();
 
 	public void execute();
+	public String getName();
 }
 
 class SimpleAction implements Action {
@@ -26,9 +27,13 @@ class SimpleAction implements Action {
 
 	public void setName(String s) {
 		this.name = s;
-	}
 
-	public String toString() {
+	}	
+	
+	public String getName() {
+		return name;
+	}
+		public String toString() {
 		return actuator.getNodeID() + "(" + value + ")";
 	}
 
@@ -51,8 +56,11 @@ class CompositeAction implements Action {
 	public void setName(String s) {
 		this.name = s;
 	}
-
-	public String toString() {
+	
+	public String getName() {
+		return name;
+	}
+		public String toString() {
 		return name + ": " + actions.toString();
 	}
 

@@ -28,7 +28,7 @@ public class Rule {
 	}
 
 	public String toString() {
-		return name + ":" + event + ":" + condition + ":" + action;
+		return event.getName() + ":" + condition.getName() + ":" + action.getName();
 	}
 	
 	void evaluate() {
