@@ -1,4 +1,20 @@
 Patrick Flanagan
-Cheenu Madan
+pflanag@ufl.edu
+2644-3883 
 
-Report is in /doc/
+Cheenu Madan
+cheenu.madan@ufl.edu
+3983-8004
+
+Report is in /doc
+Presentation is in /doc
+Log files are the numbered text files in /doc
+
+New files worth mentioning are in src\AtlasReactivityEngine10\gen.  They are 
+parser.cup and lexer.flex.  These files generate parser.java and Lexer.java
+files.  (The Ant build should take care of this generation.)
+
+The Reactivity Engine has been refactored.  One can follow the thread of
+new code easily enough, hopefully, by starting in the Activator.java.  It is
+our hope that this code is more readable and potentially usable by future 
+projects.
