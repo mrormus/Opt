@@ -1,6 +1,5 @@
 package com.pervasa.reactivity;
 
-import org.osgi.framework.ServiceReference;
 import org.sensorplatform.actuators.servo.hs322.HS322Servo;
 import org.sensorplatform.sensors.digitalcontact.DigitalContactSensor;
 import org.sensorplatform.sensors.humidity.HumiditySensor;
@@ -82,7 +81,7 @@ class Sensor implements Device {
 				d4.subscribeToSensorData(ac);
 			}
 		} else {
-			System.err.println("Device '" + this + "' was deregistered.");
+			System.err.println("Device '" + this.getNodeID() + "' was deregistered.");
 		}
 
 	}
@@ -110,9 +109,9 @@ class Sensor implements Device {
 				break;
 			}
 
-			System.out.println("Pull from " + this);
+			System.out.println("Pull from " + this.getNodeID());
 		} else {
-			System.err.println("Device '" + this + "' was deregistered.");
+			System.err.println("Device '" + this.getNodeID() + "' was deregistered.");
 		}
 
 	}
@@ -137,7 +136,7 @@ class Sensor implements Device {
 				d4.unsubscribeFromSensorData(ac);
 			}
 		} else {
-			System.err.println("Device '" + this + "' was deregistered.");
+			System.err.println("Device '" + this.getNodeID() + "' was deregistered.");
 		}
 	}
 }
@@ -167,7 +166,7 @@ class Actuator implements Device {
 		if (isRegistered) {
 			servo.moveServo(((value * 100) / 180) + 1);
 		} else {
-			System.err.println("Device '" + this + "' was deregistered.");
+			System.err.println("Device '" + this.getNodeID() + "' was deregistered.");
 		}
 	}
 
