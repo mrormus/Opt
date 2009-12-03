@@ -611,6 +611,7 @@ class Engine {
 
 			TFMAbsoluteStartTask(TFMEvent e, Set<Sensor> sensors, int evalFreq,
 					Date end) {
+				this.e = e;
 				this.sensors = sensors;
 				this.evalFreq = evalFreq;
 				this.end = end;
@@ -651,7 +652,6 @@ class Engine {
 			TFMRelativeStartTask(TFMEvent e, Set<Sensor> sensors, int evalFreq) {
 				this.sensors = sensors;
 				this.evalFreq = evalFreq;
-
 				this.e = e;
 			}
 

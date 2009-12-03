@@ -50,7 +50,7 @@ class Sensor implements Device {
 	}
 
 	public String toString() {
-		return nodeID + " = " + DeviceType.name(deviceType) + ", "
+		return DeviceType.name(deviceType) + ", "
 				+ DeviceType.range(deviceType);
 	}
 
@@ -160,7 +160,7 @@ class Actuator implements Device {
 	}
 
 	public String toString() {
-		return nodeID + " = MoveServo, [0, 180]";
+		return " = MoveServo, [0, 180]";
 	}
 
 	void actuate(int value) {

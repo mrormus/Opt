@@ -21,12 +21,15 @@ public class Condition {
 	public void setName(String s) {
 		this.name = s;
 	}
+	public String getName() {
+		return name;
+	}
 	void set(boolean b) {
 		this.value = b;
 	}
 	public String toString(){
 		if (name != null) {
-		return (name + ":" + value);
+		return ("" + value);
 		} else {
 			return "" + value;
 		}
