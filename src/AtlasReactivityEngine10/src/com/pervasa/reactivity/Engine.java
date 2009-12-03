@@ -544,6 +544,7 @@ class Engine {
 			 * The code executed whenever a timer with this task fires.
 			 */
 			public void run() {
+				error("update fires!");
 
 				// Only update if the engine is running
 				if (state.isRunning()) {
@@ -584,6 +585,7 @@ class Engine {
 			 * cancels the associated update timer.
 			 */
 			public void run() {
+				
 				// Call realUpdate() one last time. Since we are now outside the
 				// window, this will cause the event's reportFreq to be reset,
 				// and thus cause this event to evaluate to false.
@@ -611,6 +613,7 @@ class Engine {
 
 			TFMAbsoluteStartTask(TFMEvent e, Set<Sensor> sensors, int evalFreq,
 					Date end) {
+				this.e = e;
 				this.sensors = sensors;
 				this.evalFreq = evalFreq;
 				this.end = end;
@@ -651,7 +654,6 @@ class Engine {
 			TFMRelativeStartTask(TFMEvent e, Set<Sensor> sensors, int evalFreq) {
 				this.sensors = sensors;
 				this.evalFreq = evalFreq;
-
 				this.e = e;
 			}
 
@@ -664,6 +666,7 @@ class Engine {
 			 * timer, using TFMRelativeStartTask
 			 */
 			public void run() {
+				error("relstart fires!");
 
 				// The closing time for this relative window. getRelEnd()
 				// returns today's window close if the window hasn't expired and
@@ -677,6 +680,7 @@ class Engine {
 				t.scheduleAtFixedRate(new TFMUpdateTask(e, sensors), 0,
 						evalFreq * 1000);
 
+				error("relend scheduled for " + end);
 				// Schedule the cancel-and-reschedule RelativeStop timer
 				spawnTimer().schedule(
 						new TFMRelativeStopTask(t, e, sensors, evalFreq), end);
@@ -721,6 +725,7 @@ class Engine {
 			 * B) schedules another RelativeStartTask
 			 */
 			public void run() {
+				error("relend fires!");
 
 				// Call realUpdate() one last time. Since we are now outside the
 				// window, this will cause the event's reportFreq to be reset,

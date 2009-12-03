@@ -449,11 +449,12 @@ class Window {
 	// Parses a string of the format "HH:mm:ss" and adjusts a calendar
 	// accordingly
 	private void addTime(Calendar c, String hhmmss) {
-
+		err ("addTime() pre" + c);
 		StringTokenizer st = new StringTokenizer(hhmmss, ":");
 		c.add(Calendar.HOUR_OF_DAY, Integer.parseInt(st.nextToken()));
 		c.add(Calendar.MINUTE, Integer.parseInt(st.nextToken()));
 		c.add(Calendar.SECOND, Integer.parseInt(st.nextToken()));
+		err ("addTime() post " + c);
 
 	}
 
@@ -514,26 +515,38 @@ class Window {
 	}
 
 	private Date calculateTime(String hhmmss) {
+		
+		err("calc'ing time");
 		Calendar today = Calendar.getInstance();
+		err("today init = " + today);
 		today.set(today.get(Calendar.YEAR), today.get(Calendar.MONTH), today
 				.get(Calendar.DATE), 0, 0, 0);
-		Date thisMorning = today.getTime();
-
-		Calendar c1 = Calendar.getInstance();
-		c1.setTime(thisMorning);
-		addTime(c1, hhmmss);
-		return c1.getTime();
+		err("calendar thismorning = " + today);
+		addTime(today, hhmmss);
+		err("return date = " + today.getTime());
+		return today.getTime();
 	}
 
 	private Date todayOrTomorrow(Date d) {
+		err("today or 2marrow");
 		Date now = new Date();
-		if (now.after(calculateTime(relEnd))) {
+		err("now = " + now);
+		if (!now.before(calculateTime(relEnd))) {
+			err("now is after calculated relend time");
 			Calendar c = Calendar.getInstance();
+			err("new c = " + c);
 			c.setTime(d);
+			err("c after init = " + c);
 			c.add(Calendar.DATE, 1);
 			d = c.getTime();
+			err("d at end of IF = " + d);
 		}
+		err("d returned. todayortomorrow d = " + d);
 		return d;
+	}
+	
+	private void err(String s) {
+		System.out.println(s);
 	}
 
 	Type returnType() {
