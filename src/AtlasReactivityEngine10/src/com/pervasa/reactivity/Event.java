@@ -4,8 +4,10 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.StringTokenizer;
+import java.util.Timer;
 
 interface Event {
 
@@ -271,6 +273,8 @@ class TFMEvent extends EventBase implements Event {
 	private Window window;
 	private EvalFreq evalFreq;
 	private ReportFreq reportFreq;
+	private Timer timer;
+	private HashSet<Sensor> sensors;
 
 	/* Constructors */
 
@@ -290,6 +294,9 @@ class TFMEvent extends EventBase implements Event {
 			rf = new ReportFreq(n, ef, w);
 		}
 		this.reportFreq = rf;
+		
+		this.sensors = new HashSet<Sensor>();
+		this.modifiedEvent.addSensorsTo(this.sensors);
 
 	}
 
@@ -308,8 +315,16 @@ class TFMEvent extends EventBase implements Event {
 		super.setName(name);
 	}
 
+	public void setTimer(Timer timer) {
+		this.timer = timer;
+	}
+
 	public long getTimeLastChanged() {
 		return status.getTimeLastChanged();
+	}
+	
+	public HashSet<Sensor> getSensors() {
+		return this.sensors;
 	}
 
 	public boolean evaluate() {
@@ -385,14 +400,16 @@ class TFMEvent extends EventBase implements Event {
 			reportFreq.reset();
 		}
 
+		// If this event is now reporting, there is no need for its timer to
+		// keep pinging sensors, so cancel it.
+		if (timer != null && reportFreq.isReporting()) {
+			timer.cancel();
+		}
+
 		// Finish this realUpdate() call by actually updating the status of the
 		// TFMEvent, exactly like an update() would have done
-		error("isReporting = " + reportFreq.isReporting());
 		status.setStatus(reportFreq.isReporting());
 
-	}
-	private void error(String s) {
-		System.err.println(s);
 	}
 
 	/**
@@ -414,8 +431,10 @@ class Window {
 
 	private String relStart;
 	private String relEnd;
-	
-	enum Type {INFINITE, ABSOLUTE, RELATIVE }
+
+	enum Type {
+		INFINITE, ABSOLUTE, RELATIVE
+	}
 
 	private Type type;
 
@@ -517,7 +536,7 @@ class Window {
 	}
 
 	private Date calculateTime(String hhmmss) {
-		
+
 		Calendar today = Calendar.getInstance();
 		today.set(today.get(Calendar.YEAR), today.get(Calendar.MONTH), today
 				.get(Calendar.DATE), 0, 0, 0);
@@ -665,10 +684,10 @@ class ReportFreq {
 		this(Type.PERCENT);
 		this.percent = n;
 		try {
-			float q1 = (float)n / (float)100;
+			float q1 = (float) n / (float) 100;
 			long q2 = w.durationInMillis() / (ef.getDuration() * 1000);
-			float fin = q1*q2;
-			this.threshold = (long) fin; 
+			float fin = q1 * q2;
+			this.threshold = (long) fin;
 		} catch (Exception e) {
 			this.threshold = 0;
 		}
@@ -699,7 +718,6 @@ class ReportFreq {
 	boolean isReporting() {
 		return current >= threshold;
 	}
-	
 
 	public String toString() {
 		String ret = "";

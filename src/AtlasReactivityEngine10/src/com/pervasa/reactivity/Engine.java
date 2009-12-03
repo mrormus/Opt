@@ -388,19 +388,40 @@ class Engine {
 	 */
 	private class Scheduler {
 
-		// FIXME Relative timers do not close their windows gracefully. At the
-		// close time, there is a period of frenetic activity during which
-		// several timer threads are spawned and canceled. This is probably due
-		// to the now.after(Date) checks giving wonky results at the edge case.
-
 		// Keep a threadsafe collection of all spawned timers.
 		// (Must be threadsafe, because spawned timers spawn
 		// other timers)
 		private ConcurrentLinkedQueue<Timer> spawnedTimers;
 
+		private class Counter {
+			private int value;
+
+			Counter(int i) {
+				this.value = i;
+			}
+
+			int incr() {
+				return ++value;
+			}
+
+			int decr() {
+				return --value;
+			}
+		}
+
+		// A threadsafe map from events to counters. Each time the
+		// event's timer pulls data from a sensor, the event's dirtyCounter is
+		// incremented. Whenever ReceivedData is called, dirtyCounters is
+		// checked to see if any TFMEvents are "dirty". If they are, and the
+		// reporting sensor is a member of that TFMEvent's sensors, then the
+		// event's dirtyCounter is decremented. If a dirtyCounter is decremented
+		// to 0, the entry is removed from the map
+		private ConcurrentHashMap<TFMEvent, Counter> dirtyCounters;
+
 		/* Initialization */
 		Scheduler() {
 			spawnedTimers = new ConcurrentLinkedQueue<Timer>();
+			dirtyCounters = new ConcurrentHashMap<TFMEvent, Counter>();
 		}
 
 		/*
@@ -491,8 +512,8 @@ class Engine {
 				case INFINITE:
 
 					// Window never closes, no need for management timers.
-					spawnTimer().scheduleAtFixedRate(
-							new TFMUpdateTask(e, sensors), 0, evalFreq * 1000);
+					spawnTimer().scheduleAtFixedRate(new TFMUpdateTask(e), 0,
+							evalFreq * 1000);
 				}
 
 			} catch (Exception exn) {
@@ -523,7 +544,6 @@ class Engine {
 		 */
 		private class TFMUpdateTask extends TimerTask {
 
-			private Set<Sensor> sensors;
 			private TFMEvent e;
 
 			/**
@@ -535,9 +555,8 @@ class Engine {
 			 *            The sensors that should be checked when this update
 			 *            fires
 			 */
-			TFMUpdateTask(TFMEvent e, Set<Sensor> sensors) {
+			TFMUpdateTask(TFMEvent e) {
 				this.e = e;
-				this.sensors = sensors;
 			}
 
 			/**
@@ -549,14 +568,40 @@ class Engine {
 				if (state.isRunning()) {
 
 					// Request data from each sensor
-					for (Sensor sensor : sensors) {
+					for (Sensor sensor : e.getSensors()) {
 						sensor.pull(logic);
+						dirtyCountersIncrement(e);
+
 					}
 
-					// Call the special TFMEvent.realUpdate() function, reserved
-					// for these timers
-					e.realUpdate();
+					/*
+					 * // Call the special TFMEvent.realUpdate() function,
+					 * reserved // for these timers e.realUpdate();
+					 */
+
 				}
+			}
+		}
+
+		private void dirtyCountersIncrement(TFMEvent e) {
+			error("inc'ing");
+			if (dirtyCounters.contains(e)) {
+				error("already here, really inc'ing");
+				dirtyCounters.get(e).incr();
+			} else {
+				error("not here.  creating entry");
+				dirtyCounters.put(e, new Counter(1));
+			}
+		}
+
+		private void dirtyCountersDecrement(TFMEvent e) {
+			error("dec'ing");
+			if (dirtyCounters.containsKey(e)) {
+				if (0 == dirtyCounters.get(e).decr()) {
+					dirtyCounters.remove(e);
+				}
+				error("update tfmevent");
+				e.realUpdate();
 			}
 		}
 
@@ -584,7 +629,7 @@ class Engine {
 			 * cancels the associated update timer.
 			 */
 			public void run() {
-				
+
 				// Call realUpdate() one last time. Since we are now outside the
 				// window, this will cause the event's reportFreq to be reset,
 				// and thus cause this event to evaluate to false.
@@ -605,7 +650,6 @@ class Engine {
 		 * 
 		 */
 		private class TFMAbsoluteStartTask extends TimerTask {
-			Set<Sensor> sensors;
 			int evalFreq;
 			Date end;
 			TFMEvent e;
@@ -613,7 +657,6 @@ class Engine {
 			TFMAbsoluteStartTask(TFMEvent e, Set<Sensor> sensors, int evalFreq,
 					Date end) {
 				this.e = e;
-				this.sensors = sensors;
 				this.evalFreq = evalFreq;
 				this.end = end;
 			}
@@ -629,8 +672,11 @@ class Engine {
 
 				// Schedule the fixed-rate update timer to start immediately
 				Timer t = spawnTimer();
-				t.scheduleAtFixedRate(new TFMUpdateTask(e, sensors), 0,
-						evalFreq * 1000);
+				t.scheduleAtFixedRate(new TFMUpdateTask(e), 0, evalFreq * 1000);
+
+				// Set the event's timer to the update timer, so it can cancel
+				// it if it reaches threshold
+				e.setTimer(t);
 
 				// Schedule the one-shot cancel timer
 				spawnTimer().schedule(new TFMAbsoluteStopTask(e, t), end);
@@ -665,7 +711,7 @@ class Engine {
 			 * timer, using TFMRelativeStartTask
 			 */
 			public void run() {
-				
+
 				// The closing time for this relative window. getRelEnd()
 				// returns today's window close if the window hasn't expired and
 				// tomorrow's window close if it has. This task will never be
@@ -675,8 +721,11 @@ class Engine {
 
 				// Schedule the update timer to start immediately
 				Timer t = spawnTimer();
-				t.scheduleAtFixedRate(new TFMUpdateTask(e, sensors), 0,
-						evalFreq * 1000);
+				t.scheduleAtFixedRate(new TFMUpdateTask(e), 0, evalFreq * 1000);
+
+				// Set the event's timer to the update timer, so it can cancel
+				// it if it reaches threshold
+				e.setTimer(t);
 
 				// Schedule the cancel-and-reschedule RelativeStop timer
 				spawnTimer().schedule(
@@ -722,7 +771,7 @@ class Engine {
 			 * B) schedules another RelativeStartTask
 			 */
 			public void run() {
-				
+
 				// Call realUpdate() one last time. Since we are now outside the
 				// window, this will cause the event's reportFreq to be reset,
 				// and thus cause this event to evaluate to false.
@@ -742,6 +791,33 @@ class Engine {
 				spawnTimer().schedule(
 						new TFMRelativeStartTask(e, sensors, evalFreq), start);
 			}
+		}
+
+		// Each time the
+		// event's timer pulls data from a sensor, the event's dirtyCounter is
+		// incremented. Whenever ReceivedData is called, dirtyCounters is
+		// checked to see if any TFMEvents are "dirty". If they are, and the
+		// reporting sensor is a member of that TFMEvent's sensors, then the
+		// event's dirtyCounter is decremented. If a dirtyCounter is decremented
+		// to 0, the entry is removed from the map
+		public void receivedData(Sensor sensor) {
+			// TODO Auto-generated method stub
+			for (Entry<TFMEvent, Counter> entry : dirtyCounters.entrySet()) {
+				error("processing a dirtyEvent");
+				TFMEvent event = entry.getKey();
+				Set<Sensor> sensors = event.getSensors();
+				for (Sensor s : sensors) {
+					error("relies on sensor " + s);
+				}
+				
+				if (sensors
+						.contains(sensor)) {
+					error("gonna decr");
+					dirtyCountersDecrement(entry.getKey());
+				}
+			}
+			
+			
 		}
 
 	}
@@ -764,9 +840,16 @@ class Engine {
 			counter++;
 			System.out.println("Received data. " + counter);
 
-			// Update sensor reading value
+			// Get the local Sensor object
 			String nodeId = props.getProperty("Node-Id");
-			state.getSensor(nodeId).update(Integer.parseInt(data));
+			Sensor sensor = state.getSensor(nodeId);
+
+			// Update sensor reading value
+			sensor.update(Integer.parseInt(data));
+
+			// In case this is from a pullData from a TFMEvent, call the
+			// scheduler
+			scheduler.receivedData(sensor);
 
 			// Change the truth values for the events
 			for (Event e : state.getEvents()) {
