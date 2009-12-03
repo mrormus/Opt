@@ -387,8 +387,12 @@ class TFMEvent extends EventBase implements Event {
 
 		// Finish this realUpdate() call by actually updating the status of the
 		// TFMEvent, exactly like an update() would have done
+		error("isReporting = " + reportFreq.isReporting());
 		status.setStatus(reportFreq.isReporting());
 
+	}
+	private void error(String s) {
+		System.err.println(s);
 	}
 
 	/**
@@ -449,12 +453,10 @@ class Window {
 	// Parses a string of the format "HH:mm:ss" and adjusts a calendar
 	// accordingly
 	private void addTime(Calendar c, String hhmmss) {
-		err ("addTime() pre" + c);
 		StringTokenizer st = new StringTokenizer(hhmmss, ":");
 		c.add(Calendar.HOUR_OF_DAY, Integer.parseInt(st.nextToken()));
 		c.add(Calendar.MINUTE, Integer.parseInt(st.nextToken()));
 		c.add(Calendar.SECOND, Integer.parseInt(st.nextToken()));
-		err ("addTime() post " + c);
 
 	}
 
@@ -516,37 +518,22 @@ class Window {
 
 	private Date calculateTime(String hhmmss) {
 		
-		err("calc'ing time");
 		Calendar today = Calendar.getInstance();
-		err("today init = " + today);
 		today.set(today.get(Calendar.YEAR), today.get(Calendar.MONTH), today
 				.get(Calendar.DATE), 0, 0, 0);
-		err("calendar thismorning = " + today);
 		addTime(today, hhmmss);
-		err("return date = " + today.getTime());
 		return today.getTime();
 	}
 
 	private Date todayOrTomorrow(Date d) {
-		err("today or 2marrow");
 		Date now = new Date();
-		err("now = " + now);
 		if (!now.before(calculateTime(relEnd))) {
-			err("now is after calculated relend time");
 			Calendar c = Calendar.getInstance();
-			err("new c = " + c);
 			c.setTime(d);
-			err("c after init = " + c);
 			c.add(Calendar.DATE, 1);
 			d = c.getTime();
-			err("d at end of IF = " + d);
 		}
-		err("d returned. todayortomorrow d = " + d);
 		return d;
-	}
-	
-	private void err(String s) {
-		System.out.println(s);
 	}
 
 	Type returnType() {
@@ -568,9 +555,9 @@ class Window {
 		case RELATIVE:
 			try {
 				SimpleDateFormat fmt = new SimpleDateFormat("HH:mm:ss");
-				Date d1 = fmt.parse(relStart);
-				Date d2 = fmt.parse(relEnd);
-				ret = d1.getTime() - d2.getTime();
+				Date start = fmt.parse(relStart);
+				Date end = fmt.parse(relEnd);
+				ret = end.getTime() - start.getTime();
 			} catch (ParseException e) {
 				System.err.println("Invalid time format");
 			}
@@ -678,8 +665,10 @@ class ReportFreq {
 		this(Type.PERCENT);
 		this.percent = n;
 		try {
-			this.threshold = (n / 100)
-					* (w.durationInMillis() / (ef.getDuration() * 1000));
+			float q1 = (float)n / (float)100;
+			long q2 = w.durationInMillis() / (ef.getDuration() * 1000);
+			float fin = q1*q2;
+			this.threshold = (long) fin; 
 		} catch (Exception e) {
 			this.threshold = 0;
 		}
@@ -710,6 +699,7 @@ class ReportFreq {
 	boolean isReporting() {
 		return current >= threshold;
 	}
+	
 
 	public String toString() {
 		String ret = "";
