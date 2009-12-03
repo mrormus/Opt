@@ -51,18 +51,6 @@ class Engine {
 		gui.update(s);
 	}
 
-	// this is basically a callback method called by any Atlas service
-	// bundle to which the application has subscribed (in this case,
-	// the pressure sensor service and the digital contact sensor
-	// service).
-	// data contains the reading produced by the sensor
-	// props contains information about the sensor that produced the data
-	// (name, label, channel to which the device is connected, etc.
-	public void ReceivedData(String data, Properties props) {
-
-		logic.ReceivedData(data, props);
-	}
-
 	/**
 	 * Clean up the engine, wipe all the state, cancel all the timer threads.
 	 */
@@ -106,47 +94,6 @@ class Engine {
 		State() {
 		}
 
-		String getSummary(StateType type) {
-			String ret = null;
-
-			switch (type) {
-			case SENSOR:
-				ret = getSummary("Sensors", sensors);
-				break;
-			case ACTUATOR:
-				ret = getSummary("Actuators", actuators);
-				break;
-			case EVENT:
-				ret = getSummary("Events", events);
-				break;
-			case CONDITION:
-				ret = getSummary("Conditions", conditions);
-				break;
-			case ACTION:
-				ret = getSummary("Actions", actions);
-				break;
-			case RULE:
-				ret = getSummary("Rules", rules);
-				break;
-			default:
-				ret = "INVALID ENUM ";
-				break;
-			}
-
-			return ret;
-		}
-
-		private String getSummary(String title, Map map) {
-			StringBuilder buf = new StringBuilder();
-			buf.append("---" + title + "---" + "\n");
-			for (Entry<String, Object> e : (Set<Entry>) map.entrySet()) {
-				buf.append(e.getKey().toString() + " = "
-						+ e.getValue().toString() + "\n");
-			}
-			buf.append("\n");
-			return buf.toString();
-		}
-
 		/* Accessors */
 
 		Collection<Event> getEvents() {
@@ -156,8 +103,6 @@ class Engine {
 		Collection<Rule> getRules() {
 			return rules.values();
 		}
-
-
 
 		Sensor getSensor(String nodeID) {
 			if (sensors.containsKey(nodeID)) {
@@ -194,7 +139,7 @@ class Engine {
 				return null;
 			}
 		}
-		
+
 		Action getAction(String name) {
 			if (actions.containsKey(name)) {
 				return actions.get(name);
@@ -214,6 +159,10 @@ class Engine {
 		}
 
 		/* Booleans */
+
+		public boolean isRunning() {
+			return run;
+		}
 
 		public boolean actuatorExists(String nodeID) {
 			return actuators.containsKey(nodeID);
@@ -239,18 +188,40 @@ class Engine {
 			return sensors.containsKey(nodeID);
 		}
 
-		// this method is called by the Reactive Engine bundle's Activator when
-		// any
-		// service running
-		// in Knopflerfish starts or changes
-		// sref is the Knopflerfish ServiceReference ID of the new/changed
-		// service
-		// dev is a direct reference to the new/changed service
-		// AtlasService is an interface implemented by all Atlas sensor and
-		// actuator
-		// services, and is what allows an AtlasClient implementor (like
-		// the Reactive Engine)
-		// to bind with attached Atlas devices.
+		/* Mutators */
+
+		void setRunning(boolean b) {
+			run = b;
+		}
+
+		public void add(String name, Event e) {
+			events.put(name, e);
+		}
+
+		public void add(String name, Condition c) {
+			conditions.put(name, c);
+		}
+
+		public void add(String name, Action a) {
+			actions.put(name, a);
+		}
+
+		public void add(String name, Rule r) {
+			rules.put(name, r);
+		}
+
+		/* Device Maintenance functionality */
+
+		/**
+		 * Called by the Activator (indirectly, through Engine's addDevice
+		 * method) when any service in Knoplerfish is added.
+		 * 
+		 * @param sref
+		 *            the Knopflerfish ServiceReference ID of the new/changed
+		 *            service
+		 * @param dev
+		 *            a direct reference to the new/changed AtlasService
+		 */
 		public void addDevice(ServiceReference sref, AtlasService dev) {
 
 			Device d = null;
@@ -290,6 +261,13 @@ class Engine {
 
 		}
 
+		/**
+		 * Called by the Activator (indirectly, through Engine's addDevice
+		 * method) when any service in Knoplerfish is removed.
+		 * 
+		 * @param sref
+		 *            A reference to the service
+		 */
 		public void removeDevice(ServiceReference sref) {
 			// FIXME: Removing a device simply halts the Engine. Not sure why,
 			// since we're deregistering everything. Might have something to do
@@ -298,49 +276,99 @@ class Engine {
 			devices.remove(sref);
 		}
 
-		public boolean isRunning() {
-			return run;
-		}
-
-		void setRunning(boolean b) {
-			run = b;
-		}
-
-		public void add(String name, Event e) {
-			events.put(name, e);
-		}
-
-		public void add(String name, Condition c) {
-			conditions.put(name, c);
-		}
-
-		public void add(String name, Action a) {
-			actions.put(name, a);
-		}
-
-		public void add(String name, Rule r) {
-			rules.put(name, r);
-		}
-
-		// Subscribes to the appropriate sensor.
+		/**
+		 * Subscribes to the appropriate sensor.
+		 * 
+		 * @param nodeID
+		 */
 		void subscribe(String nodeID) {
-
 			sensors.get(nodeID).subscribe(logic);
-
 		}
 
+		/**
+		 * Unsubscribes from all data feeds for all sensors. Does not affect
+		 * TFMEvents or their timers.
+		 */
 		public void unsubscribe() {
-
 			for (Sensor sensor : sensors.values()) {
 				sensor.unsubscribe(logic);
 			}
 		}
 
+		/* Methods */
+
+		/**
+		 * Called when the engine is shutting down; unsubscribes from all sensor
+		 * feeds and deregisters (and dereferences) all devices
+		 */
 		public void close() {
 			unsubscribe();
 			for (Device d : devices.values()) {
 				d.deregister();
 			}
+		}
+
+		/**
+		 * Called when processing the LIST directive to pretty print the state
+		 * of the engine
+		 * 
+		 * @param type
+		 * @return
+		 */
+		String getSummary(StateType type) {
+			String ret = null;
+
+			switch (type) {
+			case SENSOR:
+				ret = getSummary("Sensors", sensors);
+				break;
+			case ACTUATOR:
+				ret = getSummary("Actuators", actuators);
+				break;
+			case EVENT:
+				ret = getSummary("Events", events);
+				break;
+			case CONDITION:
+				ret = getSummary("Conditions", conditions);
+				break;
+			case ACTION:
+				ret = getSummary("Actions", actions);
+				break;
+			case RULE:
+				ret = getSummary("Rules", rules);
+				break;
+			default:
+				ret = "INVALID ENUM ";
+				break;
+			}
+
+			return ret;
+		}
+
+		/**
+		 * Helper method to construct a pretty printed summary for generic state
+		 * objects
+		 * 
+		 * @param title
+		 * @param map
+		 * @return
+		 */
+		private String getSummary(String title, Map map) {
+			// FIXME This output is quite ugly. We should go through the various
+			// objects' toString() methods and fix them so that they display the
+			// most relevant information. That is, it displays the identifier if
+			// it's part of a composite event, and the raw device data if it's
+			// an independent event. (Must take into consideration ad-hoc
+			// defined objects, ie. some objects, even though they are
+			// independent, have no identifier, eg. name field == null)
+			StringBuilder buf = new StringBuilder();
+			buf.append("---" + title + "---" + "\n");
+			for (Entry<String, Object> e : (Set<Entry>) map.entrySet()) {
+				buf.append(e.getKey().toString() + " = "
+						+ e.getValue().toString() + "\n");
+			}
+			buf.append("\n");
+			return buf.toString();
 		}
 
 	}
@@ -1223,19 +1251,31 @@ class Engine {
 
 	/* OSGi Service Methods */
 	/*
-	 * These methods are called whenever a service is registered or unregistered
-	 * with the OSGi framework.
+	 * These methods interface with OSGi and Atlas.
 	 */
 
+	// Pass the call through to the state
 	void addDevice(ServiceReference sref, AtlasService dev) {
 		state.addDevice(sref, dev);
 	}
 
+	// Pass the call through to the state
 	void removeDevice(ServiceReference sref) {
 		state.removeDevice(sref);
 	}
 
-	private void debug(String s) {
-		System.err.println(s);
+	/**
+	 * A callback method called by any Atlas service bundle to which the engine
+	 * has subscribed (or from which it has requested data with a pull)
+	 * 
+	 * @param data
+	 *            reading produced by the sensor
+	 * @param props
+	 *            information about the sensor that produced the data (name,
+	 *            label, channel to which the device is connected, etc.)
+	 */
+	public void ReceivedData(String data, Properties props) {
+		// Pass the call through to the logic
+		logic.ReceivedData(data, props);
 	}
 }

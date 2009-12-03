@@ -25,21 +25,10 @@ class SimpleAction implements Action {
 	
 	public void setName(String s) {
 		this.name = s;
-	}
-	
-	public String getName() {
-		String ret = "";
-		if (name == null) {
-			ret = toString();
-		} else {
-			ret = name;
-		}
-		return ret;
-	}
-			
+	}			
 	
 	public String toString() {
-		return name + ": " + actuator;
+			return actuator.getNodeID() + "(" + value + ")";
 	}
 	
 	public void execute() {
