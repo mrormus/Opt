@@ -393,6 +393,12 @@ class Engine {
 		// other timers)
 		private ConcurrentLinkedQueue<Timer> spawnedTimers;
 
+		/**
+		 * A simple, mutable counter
+		 * 
+		 * @author Patrick
+		 * 
+		 */
 		private class Counter {
 			private int value;
 
@@ -409,13 +415,8 @@ class Engine {
 			}
 		}
 
-		// A threadsafe map from events to counters. Each time the
-		// event's timer pulls data from a sensor, the event's dirtyCounter is
-		// incremented. Whenever ReceivedData is called, dirtyCounters is
-		// checked to see if any TFMEvents are "dirty". If they are, and the
-		// reporting sensor is a member of that TFMEvent's sensors, then the
-		// event's dirtyCounter is decremented. If a dirtyCounter is decremented
-		// to 0, the entry is removed from the map
+		// A threadsafe collection of counters for maintaining a list of
+		// TFMEvents waiting for data from sensors
 		private ConcurrentHashMap<TFMEvent, Counter> dirtyCounters;
 
 		/* Initialization */
@@ -567,41 +568,14 @@ class Engine {
 				// Only update if the engine is running
 				if (state.isRunning()) {
 
-					// Request data from each sensor
 					for (Sensor sensor : e.getSensors()) {
+						// Request data from each sensor
 						sensor.pull(logic);
+						// and indicate that this TFMEvent is waiting for data
 						dirtyCountersIncrement(e);
 
 					}
-
-					/*
-					 * // Call the special TFMEvent.realUpdate() function,
-					 * reserved // for these timers e.realUpdate();
-					 */
-
 				}
-			}
-		}
-
-		private void dirtyCountersIncrement(TFMEvent e) {
-			error("inc'ing");
-			if (dirtyCounters.contains(e)) {
-				error("already here, really inc'ing");
-				dirtyCounters.get(e).incr();
-			} else {
-				error("not here.  creating entry");
-				dirtyCounters.put(e, new Counter(1));
-			}
-		}
-
-		private void dirtyCountersDecrement(TFMEvent e) {
-			error("dec'ing");
-			if (dirtyCounters.containsKey(e)) {
-				if (0 == dirtyCounters.get(e).decr()) {
-					dirtyCounters.remove(e);
-				}
-				error("update tfmevent");
-				e.realUpdate();
 			}
 		}
 
@@ -793,31 +767,52 @@ class Engine {
 			}
 		}
 
-		// Each time the
-		// event's timer pulls data from a sensor, the event's dirtyCounter is
-		// incremented. Whenever ReceivedData is called, dirtyCounters is
-		// checked to see if any TFMEvents are "dirty". If they are, and the
-		// reporting sensor is a member of that TFMEvent's sensors, then the
-		// event's dirtyCounter is decremented. If a dirtyCounter is decremented
-		// to 0, the entry is removed from the map
+		/**
+		 * Checks if any TFMEvents are waiting for sensor data, and if so,
+		 * checks if this is the awaited sensor data, and if so, decrements this
+		 * events dirtyCounter.
+		 * 
+		 * @param sensor
+		 *            The reporting sensor
+		 */
 		public void receivedData(Sensor sensor) {
-			// TODO Auto-generated method stub
 			for (Entry<TFMEvent, Counter> entry : dirtyCounters.entrySet()) {
-				error("processing a dirtyEvent");
-				TFMEvent event = entry.getKey();
-				Set<Sensor> sensors = event.getSensors();
-				for (Sensor s : sensors) {
-					error("relies on sensor " + s);
-				}
-				
-				if (sensors
-						.contains(sensor)) {
-					error("gonna decr");
+				if (entry.getKey().getSensors().contains(sensor)) {
 					dirtyCountersDecrement(entry.getKey());
 				}
 			}
-			
-			
+
+		}
+
+		/**
+		 * Increment this event's dirtyCounter, indicating that it is waiting
+		 * for sensor data
+		 * 
+		 * @param e
+		 *            The event waiting for sensor data.
+		 */
+		private void dirtyCountersIncrement(TFMEvent e) {
+			if (dirtyCounters.contains(e)) {
+				dirtyCounters.get(e).incr();
+			} else {
+				dirtyCounters.put(e, new Counter(1));
+			}
+		}
+
+		/**
+		 * Decrement this event's dirtyCounter, indicating that it has received
+		 * some of the sensor data for which it was waiting
+		 * 
+		 * @param e
+		 *            The event waiting for sensor data
+		 */
+		private void dirtyCountersDecrement(TFMEvent e) {
+			if (dirtyCounters.containsKey(e)) {
+				if (0 == dirtyCounters.get(e).decr()) {
+					dirtyCounters.remove(e);
+				}
+				e.realUpdate();
+			}
 		}
 
 	}
