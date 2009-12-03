@@ -5,7 +5,6 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.StringReader;
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -64,8 +63,11 @@ class Engine {
 		logic.ReceivedData(data, props);
 	}
 
+	/**
+	 * Clean up the engine, wipe all the state, cancel all the timer threads.
+	 */
 	void close() {
-		state.unsubscribe();
+		state.close();
 		scheduler.close();
 	}
 
@@ -73,35 +75,35 @@ class Engine {
 		ACTUATOR, SENSOR, EVENT, CONDITION, ACTION, RULE
 	};
 
+	/**
+	 * The Reactivity Engine component that takes care of maintaining the state
+	 * of the system. Includes accessor and mutator methods for appropriate
+	 * variables and other state.
+	 * 
+	 * @author Patrick
+	 * 
+	 */
 	class State {
 
+		// True if the engine is running, false otherwise
 		private boolean run = false;
 
-		// Local references to the sensor services
-		private InterlinkPressureSensor sensorPressure = null;
-		private HS322Servo actuatorServo = null;
-		private DigitalContactSensor sensorContact = null;
-		private TemperatureSensor sensorTemp = null;
-		private HumiditySensor sensorHumid = null;
+		// Maintain a list of all registered services so that if they go
+		// offline, we can handle it
+		Map<ServiceReference, Device> devices = new HashMap<ServiceReference, Device>();
 
-		// Knopflerfish's serviceReference IDs for the sensor services
-		private ServiceReference refPressure = null;
-		private ServiceReference refServo = null;
-		private ServiceReference refContact = null;
-		private ServiceReference refHumid = null;
-		private ServiceReference refTemp = null;
-
-		// Maps
-		Map<String, HS322Servo> servoMap = new HashMap<String, HS322Servo>();
-		Map<String, Sensor> sensorMap = new HashMap<String, Sensor>();
+		// Sensors and actuators available as services from OSGi
+		Map<String, Sensor> sensors = new HashMap<String, Sensor>();
 		Map<String, Actuator> actuators = new HashMap<String, Actuator>();
-		Map<String, Event> eventList = new ConcurrentHashMap<String, Event>();
-		Map<String, Condition> runtimeConditions = new ConcurrentHashMap<String, Condition>();
-		Map<String, Action> runtimeActions = new ConcurrentHashMap<String, Action>();
+
+		// User defined events, conditions, and rules
+		Map<String, Event> events = new ConcurrentHashMap<String, Event>();
+		Map<String, Condition> conditions = new ConcurrentHashMap<String, Condition>();
+		Map<String, Action> actions = new ConcurrentHashMap<String, Action>();
 		Map<String, Rule> rules = new HashMap<String, Rule>();
 
-		Collection<Event> getEvents() {
-			return eventList.values();
+		// Explicitly empty constructor
+		State() {
 		}
 
 		String getSummary(StateType type) {
@@ -109,19 +111,19 @@ class Engine {
 
 			switch (type) {
 			case SENSOR:
-				ret = getSummary("Sensors", sensorMap);
+				ret = getSummary("Sensors", sensors);
 				break;
 			case ACTUATOR:
 				ret = getSummary("Actuators", actuators);
 				break;
 			case EVENT:
-				ret = getSummary("Events", eventList);
+				ret = getSummary("Events", events);
 				break;
 			case CONDITION:
-				ret = getSummary("Conditions", runtimeConditions);
+				ret = getSummary("Conditions", conditions);
 				break;
 			case ACTION:
-				ret = getSummary("Actions", runtimeActions);
+				ret = getSummary("Actions", actions);
 				break;
 			case RULE:
 				ret = getSummary("Rules", rules);
@@ -145,161 +147,21 @@ class Engine {
 			return buf.toString();
 		}
 
+		/* Accessors */
+
+		Collection<Event> getEvents() {
+			return events.values();
+		}
+
 		Collection<Rule> getRules() {
 			return rules.values();
 		}
 
-		Action getAction(String name) {
-			return runtimeActions.get(name);
-		}
 
-		Condition getCondition(String name) {
-			return runtimeConditions.get(name);
-		}
-
-		Rule getRule(String name) {
-			return rules.get(name);
-		}
-
-		public boolean actuatorExists(String nodeID) {
-			return actuators.containsKey(nodeID);
-		}
-
-		public boolean eventExists(String s) {
-			return eventList.containsKey(s);
-		}
-
-		public boolean actionExists(String s) {
-			return runtimeActions.containsKey(s);
-		}
-
-		public boolean conditionExists(String s) {
-			return runtimeConditions.containsKey(s);
-		}
-
-		public boolean ruleExists(String s) {
-			return rules.containsKey(s);
-		}
-
-		public boolean sensorExists(String nodeID) {
-			return sensorMap.containsKey(nodeID);
-		}
-
-		// this method is called by the Reactive Engine bundle's Activator when
-		// any
-		// service running
-		// in Knopflerfish starts or changes
-		// sref is the Knopflerfish ServiceReference ID of the new/changed
-		// service
-		// dev is a direct reference to the new/changed service
-		// AtlasService is an interface implemented by all Atlas sensor and
-		// actuator
-		// services, and is what allows an AtlasClient implementor (like
-		// the Reactive Engine)
-		// to bind with attached Atlas devices.
-		public void addDevice(ServiceReference sref, AtlasService dev) {
-
-			if (dev instanceof HS322Servo) {
-
-				// Set references to the Servo sensor emulator
-				refServo = sref;
-				actuatorServo = (HS322Servo) dev;
-
-				// Put actuator in a HashMap of BASIC ACTIONS
-				String nodeId = sref.getProperty("Node-Id").toString();
-				actuators.put(nodeId, new Actuator(nodeId, actuatorServo));
-
-				// Put actuator in a ServoMap
-				servoMap.put(nodeId, actuatorServo);
-
-			} else {
-
-				int sType = 0;
-				if (dev instanceof InterlinkPressureSensor) {
-					sType = DeviceType.PRESSURE;
-				} else if (dev instanceof DigitalContactSensor) {
-					sType = DeviceType.CONTACT;
-				} else if (dev instanceof HumiditySensor) {
-					sType = DeviceType.HUMIDITY;
-				} else if (dev instanceof TemperatureSensor) {
-					sType = DeviceType.TEMP;
-				}
-
-				String nodeId = sref.getProperty("Node-Id").toString();
-
-				Sensor sensor = new Sensor(nodeId, sType, sref, dev,
-						Sensor.NULL);
-				sensorMap.put(nodeId, sensor);
-			}
-
-		}
-
-		// this method is called by the Reactive Engine bundle's Activator when
-		// any
-		// service
-		// running in Knopflerfish goes offline
-		// sref is the Knopflerfish ServiceReference ID of the departing service
-		// because the service has already been unbound in OSGi, we cannot do
-		// the
-		// "instanceof" check like in addDevice (the "dev" parameter in that
-		// method would be null here). This is why addDevice must record the
-		// ServiceReference.
-		public void removeDevice(ServiceReference sref) {
-
-			if (sref == refPressure) {
-
-				// set the reading of sensor to NULL (we could always remove it
-				// from
-				// the map but since events may have been defined so to ensure
-				// those
-				// events evaluate to false, we set the reading to null)
-				String nodeId = refPressure.getProperty("Node-Id").toString();
-				sensorMap.remove(nodeId);
-
-				refPressure = null;
-				sensorPressure = null;
-
-			}
-
-			else if (sref == refServo) {
-				refServo = null;
-				actuatorServo = null;
-
-			}
-
-			else if (sref == refContact) {
-
-				String nodeId = refContact.getProperty("Node-Id").toString();
-				sensorMap.remove(nodeId);
-
-				refContact = null;
-				sensorContact = null;
-			}
-
-			else if (sref == refTemp) {
-
-				String nodeId = refTemp.getProperty("Node-Id").toString();
-				sensorMap.remove(nodeId);
-
-				refTemp = null;
-				sensorTemp = null;
-
-			}
-
-			else if (sref == refHumid) {
-
-				String nodeId = refHumid.getProperty("Node-Id").toString();
-				sensorMap.remove(nodeId);
-
-				refHumid = null;
-				sensorTemp = null;
-
-			}
-		}
 
 		Sensor getSensor(String nodeID) {
-			if (sensorMap.containsKey(nodeID)) {
-				return sensorMap.get(nodeID);
+			if (sensors.containsKey(nodeID)) {
+				return sensors.get(nodeID);
 			} else {
 				error("Sensor '" + nodeID + "' does not exist.");
 				return null;
@@ -316,12 +178,124 @@ class Engine {
 		}
 
 		Event getEvent(String name) {
-			if (eventList.containsKey(name)) {
-				return eventList.get(name);
+			if (events.containsKey(name)) {
+				return events.get(name);
 			} else {
 				error("Event '" + name + "' does not exist.");
 				return null;
 			}
+		}
+
+		Condition getCondition(String name) {
+			if (conditions.containsKey(name)) {
+				return conditions.get(name);
+			} else {
+				error("Condition '" + name + "' does not exist.");
+				return null;
+			}
+		}
+		
+		Action getAction(String name) {
+			if (actions.containsKey(name)) {
+				return actions.get(name);
+			} else {
+				error("Action '" + name + "' does not exist.");
+				return null;
+			}
+		}
+
+		Rule getRule(String name) {
+			if (rules.containsKey(name)) {
+				return rules.get(name);
+			} else {
+				error("Rule '" + name + "' does not exist.");
+				return null;
+			}
+		}
+
+		/* Booleans */
+
+		public boolean actuatorExists(String nodeID) {
+			return actuators.containsKey(nodeID);
+		}
+
+		public boolean eventExists(String s) {
+			return events.containsKey(s);
+		}
+
+		public boolean actionExists(String s) {
+			return actions.containsKey(s);
+		}
+
+		public boolean conditionExists(String s) {
+			return conditions.containsKey(s);
+		}
+
+		public boolean ruleExists(String s) {
+			return rules.containsKey(s);
+		}
+
+		public boolean sensorExists(String nodeID) {
+			return sensors.containsKey(nodeID);
+		}
+
+		// this method is called by the Reactive Engine bundle's Activator when
+		// any
+		// service running
+		// in Knopflerfish starts or changes
+		// sref is the Knopflerfish ServiceReference ID of the new/changed
+		// service
+		// dev is a direct reference to the new/changed service
+		// AtlasService is an interface implemented by all Atlas sensor and
+		// actuator
+		// services, and is what allows an AtlasClient implementor (like
+		// the Reactive Engine)
+		// to bind with attached Atlas devices.
+		public void addDevice(ServiceReference sref, AtlasService dev) {
+
+			Device d = null;
+
+			if (dev instanceof HS322Servo) {
+				/* Servo */
+
+				// Add servo to actuators map
+				String nodeId = sref.getProperty("Node-Id").toString();
+				Actuator actuator = new Actuator(nodeId, (HS322Servo) dev);
+				actuators.put(nodeId, actuator);
+				d = actuator;
+
+			} else {
+				/* Sensor */
+
+				int sType = 0;
+				if (dev instanceof InterlinkPressureSensor) {
+					sType = DeviceType.PRESSURE;
+				} else if (dev instanceof DigitalContactSensor) {
+					sType = DeviceType.CONTACT;
+				} else if (dev instanceof HumiditySensor) {
+					sType = DeviceType.HUMIDITY;
+				} else if (dev instanceof TemperatureSensor) {
+					sType = DeviceType.TEMP;
+				}
+
+				// Store a reference to the sensor locally, giving it the
+				// initial sensor reading of NULL
+				String nodeId = sref.getProperty("Node-Id").toString();
+				Sensor sensor = new Sensor(nodeId, sType, dev, Sensor.NULL);
+				sensors.put(nodeId, sensor);
+				d = sensor;
+			}
+
+			devices.put(sref, d);
+
+		}
+
+		public void removeDevice(ServiceReference sref) {
+			// FIXME: Removing a device simply halts the Engine. Not sure why,
+			// since we're deregistering everything. Might have something to do
+			// with threaded access?
+			devices.get(sref).deregister();
+			devices.remove(sref);
 		}
 
 		public boolean isRunning() {
@@ -333,15 +307,15 @@ class Engine {
 		}
 
 		public void add(String name, Event e) {
-			eventList.put(name, e);
+			events.put(name, e);
 		}
 
 		public void add(String name, Condition c) {
-			runtimeConditions.put(name, c);
+			conditions.put(name, c);
 		}
 
 		public void add(String name, Action a) {
-			runtimeActions.put(name, a);
+			actions.put(name, a);
 		}
 
 		public void add(String name, Rule r) {
@@ -351,14 +325,21 @@ class Engine {
 		// Subscribes to the appropriate sensor.
 		void subscribe(String nodeID) {
 
-			sensorMap.get(nodeID).subscribe(logic);
+			sensors.get(nodeID).subscribe(logic);
 
 		}
 
 		public void unsubscribe() {
 
-			for (Sensor sensor : sensorMap.values()) {
+			for (Sensor sensor : sensors.values()) {
 				sensor.unsubscribe(logic);
+			}
+		}
+
+		public void close() {
+			unsubscribe();
+			for (Device d : devices.values()) {
+				d.deregister();
 			}
 		}
 
@@ -747,6 +728,9 @@ class Engine {
 	 */
 	class Logic implements AtlasClient {
 
+		Logic() {
+		}
+
 		public void ReceivedData(String data, Properties props) {
 			counter++;
 			System.out.println("Received data. " + counter);
@@ -1095,6 +1079,10 @@ class Engine {
 		return state.getRule(nodeID);
 	}
 
+	Condition getCondition(String i) {
+		return state.getCondition(i);
+	}
+
 	/**
 	 * Called by the parser when provided with an event string of the form
 	 * "NodeID(min, max)". Verifies that the sensor node exists.
@@ -1180,9 +1168,16 @@ class Engine {
 		return new Condition(b);
 	}
 
-	/*
-	 * Construct a SimpleAction given an actuator's nodeID and a value to which
-	 * to actuate
+	/**
+	 * Called by the parser when provided with an action string of the form
+	 * "NodeID(value)". Verifies that the action node exists.
+	 * 
+	 * @param nodeID
+	 *            NodeID of the associated actuator
+	 * @param value
+	 *            Value to which this actuator should be set upon executing this
+	 *            action
+	 * @return
 	 */
 	Action createAction(String nodeID, Integer value) {
 		if (state.actuatorExists(nodeID)) {
@@ -1193,6 +1188,22 @@ class Engine {
 		}
 	}
 
+	/**
+	 * Called by the parser when provided with a rule string of the form
+	 * "event,condition,rule". Because the arguments are passed up from the
+	 * above create methods, this method checks that they are not null before
+	 * defining the new rule.
+	 * 
+	 * @param e
+	 *            Reference to the root of the event tree, as determined by the
+	 *            parser
+	 * @param c
+	 *            Reference to the condition, as determined by the parser
+	 * @param a
+	 *            Reference to the action or actions to execute if this rule
+	 *            evaluates to true, as determined by the parser
+	 * @return
+	 */
 	Rule createRule(Event e, Condition c, Action a) {
 		if (e != null) {
 			if (c != null) {
@@ -1210,9 +1221,10 @@ class Engine {
 		return null;
 	}
 
-	/* Core Methods */
+	/* OSGi Service Methods */
 	/*
-	 * These methods are called by Core.
+	 * These methods are called whenever a service is registered or unregistered
+	 * with the OSGi framework.
 	 */
 
 	void addDevice(ServiceReference sref, AtlasService dev) {
@@ -1221,10 +1233,6 @@ class Engine {
 
 	void removeDevice(ServiceReference sref) {
 		state.removeDevice(sref);
-	}
-
-	public Condition getCondition(String i) {
-		return state.getCondition(i);
 	}
 
 	private void debug(String s) {
