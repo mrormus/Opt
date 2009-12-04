@@ -923,8 +923,20 @@ class Engine {
 		 * Composite and Simple events
 		 */
 		public void start() {
+
+			logMem();
 			state.setRunning(true);
 			subscriptionManager();
+		}
+		
+		private class StopCmd extends TimerTask {
+			public void run() {
+				stop();
+			}
+		}
+		public void start(int duration) {
+			new Timer().schedule(new StopCmd(), duration * 1000);
+			start();
 		}
 
 		/**
@@ -932,12 +944,21 @@ class Engine {
 		 * and unsubscribing from any other sensors.
 		 */
 		void stop() {
+			logMem();
 			state.setRunning(false);
-
 			// Unsubscribe from all the sensors once the engine stops
 			// running
 			state.unsubscribe();
 
+		}
+		
+		private void logMem() {
+
+			Runtime r = Runtime.getRuntime();
+			r.gc();
+			long free = r.freeMemory();
+			long total = r.totalMemory();
+			logFile(free + " / " + total + " = " + (float) free / (float) total);
 		}
 
 	}
@@ -1137,6 +1158,15 @@ class Engine {
 			logic.start();
 		}
 
+	}
+	
+	void run(int duration) {
+		if (state.isRunning()) {
+			error("RUN mode is already on");
+			return;
+		} else {
+			logic.start(duration);
+		}
 	}
 
 	void stop() {

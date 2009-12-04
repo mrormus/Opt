@@ -65,6 +65,8 @@ cmd	::=
 		{: parser.e.setCondition(i, b); :}
 	| RUN
 		{: parser.e.run(); :}
+	| RUN NUMBER:n
+		{: parser.e.run(n); :}
 	| STOP
 		{: parser.e.stop(); :}
 	| LOAD IDENTIFIER:i
